@@ -1,0 +1,5 @@
+{
+  "name": "Soundarya Lahari Mantra Finder",
+  "description": "An application to help users find the appropriate Soundarya Lahari sloka and bija mantra for their specific needs or problems by leveraging the analytical power of the Gemini API.",
+  "requestFramePermissions": []
+}
