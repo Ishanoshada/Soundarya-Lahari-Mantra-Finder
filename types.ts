@@ -1,3 +1,4 @@
+
 export interface Sloka {
   slokaNumber: number;
   title: string;
@@ -46,6 +47,7 @@ export interface TantraBookMantra {
   category: string;
   title: string;
   purpose: string[];
+  // FIX: Add transliteratedMantra to the type definition.
   transliteratedMantra: string[];
   instructions: string;
   notes?: string[];
@@ -67,6 +69,14 @@ export interface ChatMessage {
 }
 
 export type BookmarkedItem = 
-  | { type: 'sloka'; data: Sloka }
-  | { type: 'remedy'; data: VedicRemedy }
-  | { type: 'tantra'; data: TantraBookMantra };
+  | { type: 'sloka'; data: Sloka; sections?: string[] }
+  | { type: 'remedy'; data: VedicRemedy; sections?: string[] }
+  | { type: 'tantra'; data: TantraBookMantra; sections?: string[] };
+
+export interface CombinedMantraResponse {
+    newMantra: string;
+    mantraName: string;
+    corePurpose: string;
+    synergisticBenefits: string;
+    chantingGuidance: string;
+}

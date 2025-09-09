@@ -1,19 +1,23 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TANTRA_BOOK_DATA } from '../constants/tantraBookData';
 import TantraMantraCard from './TantraMantraCard';
-import type { TantraBookMantra } from '../types';
+// FIX: Import BookmarkedItem to use in props.
+import type { TantraBookMantra, BookmarkedItem } from '../types';
 import { translateTantraBookMantras } from '../services/geminiService';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 
+// FIX: Update props to align with App.tsx and handle bookmarking correctly.
 interface TantraBookProps {
+    bookmarkedItems: BookmarkedItem[];
+    highlightedSections: Record<string, string[]>;
     onToggleSelect: (mantra: TantraBookMantra) => void;
-    isTantraMantraSelected: (mantra: TantraBookMantra) => boolean;
+    onToggleSectionBookmark: (itemData: TantraBookMantra, itemType: 'tantra') => (sectionTitle: string) => void;
     language: string;
     initialSelectedId: number | null;
 }
 
-const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, isTantraMantraSelected, language, initialSelectedId }) => {
+const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedMantraId, setSelectedMantraId] = useState<number | null>(initialSelectedId || TANTRA_BOOK_DATA[0]?.id || null);
     
@@ -137,13 +141,23 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, isTantraMantraS
                  <div className="md:col-span-2">
                     {isCardLoading && <LoadingSpinner />}
                     {!isCardLoading && error && <ErrorMessage message={error} />}
-                    { !isCardLoading && !error && mantraForDisplay ? (
-                        <TantraMantraCard 
-                            mantra={mantraForDisplay} 
-                            onToggleSelect={onToggleSelect}
-                            isSelected={isTantraMantraSelected(mantraForDisplay)}
-                        />
-                    ) : (
+                    {/* FIX: Calculate isSelected and pass correct props to TantraMantraCard. */}
+                    { !isCardLoading && !error && mantraForDisplay ? (() => {
+                        const bookmarkedItem = bookmarkedItems.find(i => i.type === 'tantra' && i.data.id === mantraForDisplay.id);
+                        const isSelected = !!bookmarkedItem;
+                        const bookmarkedSections = bookmarkedItem?.sections || [];
+                        const highlightKey = `tantra_${mantraForDisplay.id}`;
+                        return (
+                            <TantraMantraCard 
+                                mantra={mantraForDisplay} 
+                                onToggleSelect={onToggleSelect}
+                                isSelected={isSelected}
+                                bookmarkedSections={bookmarkedSections}
+                                highlightedSections={highlightedSections[highlightKey] || []}
+                                onToggleSectionBookmark={onToggleSectionBookmark(mantraForDisplay, 'tantra')}
+                            />
+                        );
+                    })() : (
                         !isCardLoading && !error && (
                             <div className="flex items-center justify-center h-full bg-white/60 p-4 rounded-xl border border-amber-300/50 shadow-lg min-h-[400px]">
                                 <p className="text-amber-700 text-center">

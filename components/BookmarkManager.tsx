@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import type { BookmarkedItem } from '../types';
+import type { BookmarkedItem, Sloka, VedicRemedy, TantraBookMantra } from '../types';
 import CopyableLink from './CopyableLink';
 
 const BookmarkIcon = () => (
@@ -15,7 +16,7 @@ const CloseIcon = () => (
 );
 
 interface BookmarkManagerProps {
-    bookmarkedItem: BookmarkedItem | null;
+    bookmarkedItems: BookmarkedItem[];
     language: string;
 }
 
@@ -27,23 +28,41 @@ const LANG_CODE_MAP: { [key: string]: string } = {
     'Malayalam': 'ml'
 };
 
-const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItem, language }) => {
+const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItems, language }) => {
     const [showModal, setShowModal] = useState(false);
 
     const shareableLink = useMemo(() => {
-        if (!bookmarkedItem) return null;
+        if (!bookmarkedItems || bookmarkedItems.length === 0) return null;
 
         const params = new URLSearchParams();
-        switch (bookmarkedItem.type) {
-            case 'sloka':
-                params.set('slokas', String(bookmarkedItem.data.slokaNumber));
-                break;
-            case 'remedy':
-                params.set('remedies', String(bookmarkedItem.data.id));
-                break;
-            case 'tantra':
-                params.set('tantra', String(bookmarkedItem.data.id));
-                break;
+        
+        const slokaItems = bookmarkedItems.filter((i): i is { type: 'sloka'; data: Sloka; sections?: string[] } => i.type === 'sloka');
+        const remedyItems = bookmarkedItems.filter((i): i is { type: 'remedy'; data: VedicRemedy; sections?: string[] } => i.type === 'remedy');
+        const tantraItems = bookmarkedItems.filter((i): i is { type: 'tantra'; data: TantraBookMantra; sections?: string[] } => i.type === 'tantra');
+
+        if (slokaItems.length > 0) {
+            params.set('slokas', slokaItems.map(i => i.data.slokaNumber).join(','));
+            slokaItems.forEach(item => {
+                if (item.sections && item.sections.length > 0) {
+                    params.set(`s${item.data.slokaNumber}_sections`, item.sections.map(encodeURIComponent).join(','));
+                }
+            });
+        }
+        if (remedyItems.length > 0) {
+            params.set('remedies', remedyItems.map(i => i.data.id).join(','));
+             remedyItems.forEach(item => {
+                if (item.sections && item.sections.length > 0) {
+                    params.set(`r${item.data.id}_sections`, item.sections.map(encodeURIComponent).join(','));
+                }
+            });
+        }
+        if (tantraItems.length > 0) {
+            params.set('tantra', tantraItems.map(i => i.data.id).join(','));
+            tantraItems.forEach(item => {
+                if (item.sections && item.sections.length > 0) {
+                    params.set(`t${item.data.id}_sections`, item.sections.map(encodeURIComponent).join(','));
+                }
+            });
         }
 
         if (language !== 'English') {
@@ -54,13 +73,13 @@ const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItem, langu
         }
         
         return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-    }, [bookmarkedItem, language]);
+    }, [bookmarkedItems, language]);
     
     const handleOpenModal = () => {
         if (shareableLink) {
             setShowModal(true);
         } else {
-            alert("Please bookmark an item to create a shareable link.");
+            alert("Please bookmark one or more items to create a shareable link.");
         }
     };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SLOKA_DATA } from '../constants/slokaData';
-import { translateSlokas, analyzeSlokas, captureElementAsImage } from '../services/geminiService';
-import type { Sloka } from '../types';
+import { translateSlokas, analyzeSlokas } from '../services/geminiService';
+import type { Sloka, BookmarkedItem } from '../types';
 import MantraCard from './MantraCard';
 import ErrorMessage from './ErrorMessage';
 import LoadingSpinner from './LoadingSpinner';
@@ -9,13 +9,19 @@ import AnalysisDisplay from './AnalysisDisplay';
 
 interface MantraLookupProps {
   onToggleSelect: (mantra: Sloka) => void;
-  isSelected: (mantra: Sloka) => boolean;
+  bookmarkedItems: BookmarkedItem[];
+  highlightedSections: Record<string, string[]>;
+  onToggleSectionBookmark: (itemData: Sloka, itemType: 'sloka') => (sectionTitle: string) => void;
   onExplainRequest: (slokas: Sloka[]) => void;
   onAnalyzeRequest: (sloka: Sloka) => void;
   language: string;
+  initialSelectedId: number | null;
 }
 
-const MantraLookup: React.FC<MantraLookupProps> = ({ onToggleSelect, isSelected, onExplainRequest, onAnalyzeRequest, language }) => {
+const MantraLookup: React.FC<MantraLookupProps> = ({ 
+    onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, 
+    onExplainRequest, onAnalyzeRequest, language, initialSelectedId 
+}) => {
   const [query, setQuery] = useState('');
   const [untranslatedResults, setUntranslatedResults] = useState<Sloka[] | null>(null);
   const [displayResults, setDisplayResults] = useState<Sloka[] | null>(null);
@@ -25,44 +31,17 @@ const MantraLookup: React.FC<MantraLookupProps> = ({ onToggleSelect, isSelected,
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
+  const initialLookupPerformed = useRef(false);
 
-  useEffect(() => {
-    const translateResults = async () => {
-      if (!untranslatedResults || untranslatedResults.length === 0) {
-        setDisplayResults(untranslatedResults);
-        return;
-      }
-      
-      if (language === 'English') {
-        setDisplayResults(untranslatedResults);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      try {
-        const translated = await translateSlokas(untranslatedResults, language);
-        setDisplayResults(translated);
-      } catch (err: any) {
-        setError(err.message);
-        setDisplayResults(untranslatedResults);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    translateResults();
-  }, [untranslatedResults, language]);
-
-  const handleLookup = (e: React.FormEvent) => {
-    e.preventDefault();
+  const performLookup = (lookupQuery: string) => {
     setError(null);
     setUntranslatedResults(null);
     setDisplayResults(null);
     setAnalysisResult(null); 
     setAnalysisError(null);
 
-    const trimmedQuery = query.trim();
+    const trimmedQuery = lookupQuery.trim();
 
     if (!trimmedQuery) {
         setError("Please enter a Bija Mantra or a Sloka number to look up.");
@@ -96,6 +75,60 @@ const MantraLookup: React.FC<MantraLookupProps> = ({ onToggleSelect, isSelected,
     }
   };
 
+  useEffect(() => {
+    // This effect handles the initial lookup from a shared URL or bookmark click
+    if (initialSelectedId && !initialLookupPerformed.current) {
+        const idString = String(initialSelectedId);
+        setQuery(idString);
+        performLookup(idString);
+        initialLookupPerformed.current = true;
+    }
+    // We only want this to run based on the initialSelectedId, not the query.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSelectedId]);
+  
+  // Reset the ref if the component is viewed without an initial ID, allowing it to work again later
+  useEffect(() => {
+    if (!initialSelectedId) {
+        initialLookupPerformed.current = false;
+    }
+  }, [initialSelectedId]);
+
+
+  useEffect(() => {
+    const translateResults = async () => {
+      if (!untranslatedResults || untranslatedResults.length === 0) {
+        setDisplayResults(untranslatedResults);
+        return;
+      }
+      
+      if (language === 'English') {
+        setDisplayResults(untranslatedResults);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      try {
+        const translated = await translateSlokas(untranslatedResults, language);
+        setDisplayResults(translated);
+      } catch (err: any) {
+        setError(err.message);
+        setDisplayResults(untranslatedResults);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    translateResults();
+  }, [untranslatedResults, language]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    initialLookupPerformed.current = true; // Mark as user-interacted
+    performLookup(query);
+  };
+
   const handleAnalyze = async () => {
     if (!displayResults || displayResults.length === 0) return;
     
@@ -115,7 +148,7 @@ const MantraLookup: React.FC<MantraLookupProps> = ({ onToggleSelect, isSelected,
 
   return (
     <div className="w-full max-w-3xl mx-auto my-6 animate-landing animate-fade-in" style={{ animationDelay: '1.3s' }}>
-      <form onSubmit={handleLookup} className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-md border border-amber-300/60">
+      <form onSubmit={handleSubmit} className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-md border border-amber-300/60">
         <div className="flex flex-col sm:flex-row items-center gap-2">
             <input
               type="text"
@@ -155,16 +188,25 @@ const MantraLookup: React.FC<MantraLookupProps> = ({ onToggleSelect, isSelected,
         {analysisError && !isAnalyzing && <ErrorMessage message={analysisError} />}
         {analysisResult && !isAnalyzing && <AnalysisDisplay text={analysisResult} />}
 
-        {displayResults && !isLoading && displayResults.map(mantra => (
-          <MantraCard 
-            key={mantra.slokaNumber}
-            mantra={mantra}
-            onToggleSelect={onToggleSelect}
-            isSelected={isSelected(mantra)}
-            onExplainRequest={() => onExplainRequest([mantra])}
-            onAnalyzeRequest={onAnalyzeRequest}
-          />
-        ))}
+        {displayResults && !isLoading && displayResults.map(mantra => {
+          const bookmarkedItem = bookmarkedItems.find(i => i.type === 'sloka' && i.data.slokaNumber === mantra.slokaNumber);
+          const isSelected = !!bookmarkedItem;
+          const bookmarkedSections = bookmarkedItem?.sections || [];
+          const highlightKey = `sloka_${mantra.slokaNumber}`;
+
+          return (
+            <MantraCard
+              key={mantra.slokaNumber}
+              mantra={mantra}
+              onToggleSelect={onToggleSelect}
+              isSelected={isSelected}
+              bookmarkedSections={bookmarkedSections}
+              highlightedSections={highlightedSections[highlightKey] || []}
+              onToggleSectionBookmark={onToggleSectionBookmark(mantra, 'sloka')}
+              onExplainRequest={() => onExplainRequest([mantra])}
+              onAnalyzeRequest={onAnalyzeRequest} />
+          );
+        })}
         {!error && !displayResults && !isLoading && (
             <div className="text-center text-amber-700 mt-16 text-lg">
                 <p>Look up a Bija Mantra to see its associated slokas,</p>

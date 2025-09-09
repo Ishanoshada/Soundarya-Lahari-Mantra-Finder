@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import type { Sloka } from '../types';
 import { captureElementAsImage } from '../services/geminiService';
+import AudioButton from './AudioButton';
 
 interface MantraCardProps {
   mantra: Sloka;
@@ -9,6 +10,9 @@ interface MantraCardProps {
   onExplainRequest: () => void;
   onAnalyzeRequest: (sloka: Sloka) => void;
   isNested?: boolean;
+  bookmarkedSections?: string[];
+  highlightedSections?: string[];
+  onToggleSectionBookmark?: (sectionTitle: string) => void;
 }
 
 const CameraIcon = () => (
@@ -25,15 +29,45 @@ const LoadingSpinnerIcon = () => (
     </svg>
 );
 
+const BookmarkSectionIcon: React.FC<{ isBookmarked: boolean }> = ({ isBookmarked }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12l-5-2.5L5 16V4z" />
+    </svg>
+);
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="mb-4">
-        <h3 className="text-lg font-semibold text-amber-800 border-b-2 border-amber-200 pb-1 mb-2">{title}</h3>
+const Section: React.FC<{
+    title: string;
+    children: React.ReactNode;
+    isBookmarked?: boolean;
+    isHighlighted?: boolean;
+    onToggleBookmark?: (title: string) => void;
+}> = ({ title, children, isBookmarked = false, isHighlighted = false, onToggleBookmark }) => (
+    <div className={`mb-4 transition-all duration-300 ${isHighlighted ? 'bg-yellow-100/70 rounded-lg p-3 -m-3 shadow-inner' : ''}`}>
+        <div className="flex justify-between items-center border-b-2 border-amber-200 pb-1 mb-2">
+            <h3 className="text-lg font-semibold text-amber-800">{title}</h3>
+            {onToggleBookmark && (
+                <button
+                    onClick={() => onToggleBookmark(title)}
+                    className={`p-1 rounded-full transition-colors ${isBookmarked ? 'text-emerald-600 bg-emerald-100/50' : 'text-slate-400 hover:bg-slate-200/50'}`}
+                    aria-label={`Bookmark section: ${title}`}
+                    aria-pressed={isBookmarked}
+                >
+                    <BookmarkSectionIcon isBookmarked={isBookmarked} />
+                </button>
+            )}
+        </div>
         <div className="text-slate-700 text-base">{children}</div>
     </div>
 );
 
-const MantraCard: React.FC<MantraCardProps> = ({ mantra, onToggleSelect, isSelected, onExplainRequest, onAnalyzeRequest, isNested = false }) => {
+const formatTitleForDisplay = (title: string): string => {
+  return title.replace(/\s*-\s*\d+$/, '').trim();
+};
+
+const MantraCard: React.FC<MantraCardProps> = ({ 
+    mantra, onToggleSelect, isSelected, onExplainRequest, onAnalyzeRequest, isNested = false,
+    bookmarkedSections = [], highlightedSections = [], onToggleSectionBookmark = () => {}
+}) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -65,13 +99,16 @@ const MantraCard: React.FC<MantraCardProps> = ({ mantra, onToggleSelect, isSelec
         </button>
 
         <div className="text-center mb-6">
-            <h2 className="text-2xl md:text-3xl font-bold text-amber-900">{`Sloka #${mantra.slokaNumber}: ${mantra.title}`}</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-amber-900">{`Sloka #${mantra.slokaNumber}: ${formatTitleForDisplay(mantra.title)}`}</h2>
             <p className="text-lg text-amber-700 mt-1">Goddess: {mantra.goddess}</p>
             <div className="mt-4">
                 <p className="text-sm uppercase tracking-widest text-amber-800/80">Bija Mantra</p>
-                <p className="bija-mantra-gradient-text text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-700 to-red-800 py-1 font-playfair">
-                    {mantra.bijaMantra}
-                </p>
+                <div className="flex justify-center items-center gap-2">
+                    <p className="bija-mantra-gradient-text text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-700 to-red-800 py-1 font-playfair">
+                        {mantra.bijaMantra}
+                    </p>
+                    <AudioButton textToSpeak={mantra.bijaMantra} />
+                </div>
                  <div className="mt-2 flex flex-wrap justify-center items-center gap-x-4 gap-y-1">
                     <button 
                         onClick={onExplainRequest}
@@ -95,15 +132,30 @@ const MantraCard: React.FC<MantraCardProps> = ({ mantra, onToggleSelect, isSelec
 
         <div className="grid md:grid-cols-2 gap-6 mt-6">
             <div>
-                 <Section title="Beneficial Results">
+                 <Section 
+                    title="Beneficial Results"
+                    isBookmarked={bookmarkedSections.includes("Beneficial Results")}
+                    isHighlighted={highlightedSections.includes("Beneficial Results")}
+                    onToggleBookmark={onToggleSectionBookmark}
+                 >
                     <p>{mantra.beneficialResults}</p>
                 </Section>
-                 <Section title="Literal Results">
+                 <Section 
+                    title="Literal Results"
+                    isBookmarked={bookmarkedSections.includes("Literal Results")}
+                    isHighlighted={highlightedSections.includes("Literal Results")}
+                    onToggleBookmark={onToggleSectionBookmark}
+                 >
                     <p>{mantra.literalResults}</p>
                 </Section>
             </div>
             <div>
-                 <Section title="Mode of Worship">
+                 <Section 
+                    title="Mode of Worship"
+                    isBookmarked={bookmarkedSections.includes("Mode of Worship")}
+                    isHighlighted={highlightedSections.includes("Mode of Worship")}
+                    onToggleBookmark={onToggleSectionBookmark}
+                 >
                     <p>{mantra.modeOfWorship}</p>
                 </Section>
             </div>

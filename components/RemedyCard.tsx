@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import type { VedicRemedy } from '../types';
 import { captureElementAsImage } from '../services/geminiService';
@@ -16,20 +17,51 @@ const LoadingSpinnerIcon = () => (
     </svg>
 );
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="mb-4">
-        <h3 className="text-lg font-semibold text-amber-800 border-b-2 border-amber-200 pb-1 mb-2">{title}</h3>
+const BookmarkSectionIcon: React.FC<{ isBookmarked: boolean }> = ({ isBookmarked }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill={isBookmarked ? 'currentColor' : 'none'} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12l-5-2.5L5 16V4z" />
+    </svg>
+);
+
+const Section: React.FC<{
+    title: string;
+    children: React.ReactNode;
+    isBookmarked?: boolean;
+    isHighlighted?: boolean;
+    onToggleBookmark?: (title: string) => void;
+}> = ({ title, children, isBookmarked = false, isHighlighted = false, onToggleBookmark }) => (
+    <div className={`mb-4 transition-all duration-300 ${isHighlighted ? 'bg-yellow-100/70 rounded-lg p-3 -m-3 shadow-inner' : ''}`}>
+        <div className="flex justify-between items-center border-b-2 border-amber-200 pb-1 mb-2">
+            <h3 className="text-lg font-semibold text-amber-800">{title}</h3>
+            {onToggleBookmark && (
+                <button
+                    onClick={() => onToggleBookmark(title)}
+                    className={`p-1 rounded-full transition-colors ${isBookmarked ? 'text-emerald-600 bg-emerald-100/50' : 'text-slate-400 hover:bg-slate-200/50'}`}
+                    aria-label={`Bookmark section: ${title}`}
+                    aria-pressed={isBookmarked}
+                >
+                    <BookmarkSectionIcon isBookmarked={isBookmarked} />
+                </button>
+            )}
+        </div>
         <div className="text-slate-700 text-base space-y-2">{children}</div>
     </div>
 );
+
 
 interface RemedyCardProps {
   remedy: VedicRemedy;
   onToggleSelect?: (remedy: VedicRemedy) => void;
   isSelected?: boolean;
+  bookmarkedSections?: string[];
+  highlightedSections?: string[];
+  onToggleSectionBookmark?: (sectionTitle: string) => void;
 }
 
-const RemedyCard: React.FC<RemedyCardProps> = ({ remedy, onToggleSelect, isSelected = false }) => {
+const RemedyCard: React.FC<RemedyCardProps> = ({ 
+    remedy, onToggleSelect, isSelected = false,
+    bookmarkedSections = [], highlightedSections = [], onToggleSectionBookmark 
+}) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -62,32 +94,57 @@ const RemedyCard: React.FC<RemedyCardProps> = ({ remedy, onToggleSelect, isSelec
         <h2 className="text-2xl md:text-3xl font-bold text-amber-900">{`Remedy #${remedy.id}: ${remedy.title}`}</h2>
       </div>
 
-      <Section title="Purpose">
+      <Section 
+        title="Purpose"
+        isBookmarked={bookmarkedSections.includes("Purpose")}
+        isHighlighted={highlightedSections.includes("Purpose")}
+        onToggleBookmark={onToggleSectionBookmark}
+      >
         <p>{remedy.purpose}</p>
       </Section>
 
       {remedy.sanskritMantra && (
-         <Section title="Sanskrit Mantra">
+         <Section 
+            title="Sanskrit Mantra"
+            isBookmarked={bookmarkedSections.includes("Sanskrit Mantra")}
+            isHighlighted={highlightedSections.includes("Sanskrit Mantra")}
+            onToggleBookmark={onToggleSectionBookmark}
+        >
              <div className="italic text-slate-800 my-2 p-4 bg-amber-50/50 rounded-lg border-l-4 border-amber-500 text-center space-y-1 font-noto-sans-sinhala text-lg">
                 {remedy.sanskritMantra.map((line, i) => <p key={i}>{line}</p>)}
             </div>
         </Section>
       )}
 
-      <Section title="Transliterated Mantra">
+      <Section 
+        title="Transliterated Mantra"
+        isBookmarked={bookmarkedSections.includes("Transliterated Mantra")}
+        isHighlighted={highlightedSections.includes("Transliterated Mantra")}
+        onToggleBookmark={onToggleSectionBookmark}
+      >
         <div className="italic text-slate-800 my-2 p-4 bg-amber-50/50 rounded-lg border-l-4 border-amber-500 text-center space-y-1">
             {remedy.transliteratedMantra.map((line, i) => <p key={i}>"{line}"</p>)}
         </div>
       </Section>
 
       {remedy.chantingInstruction && (
-        <Section title="Chanting Instruction">
+        <Section 
+            title="Chanting Instruction"
+            isBookmarked={bookmarkedSections.includes("Chanting Instruction")}
+            isHighlighted={highlightedSections.includes("Chanting Instruction")}
+            onToggleBookmark={onToggleSectionBookmark}
+        >
           <p>{remedy.chantingInstruction}</p>
         </Section>
       )}
 
       {remedy.notes && (
-        <Section title="Notes">
+        <Section 
+            title="Notes"
+            isBookmarked={bookmarkedSections.includes("Notes")}
+            isHighlighted={highlightedSections.includes("Notes")}
+            onToggleBookmark={onToggleSectionBookmark}
+        >
           {remedy.notes.map((note, i) => <p key={i} className="text-sm text-slate-600">- {note}</p>)}
         </Section>
       )}

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SLOKA_DATA } from '../constants/slokaData';
 
 interface SearchBarProps {
   onSearch: (query: string, combine: boolean) => void;
+  onLocalSearch: (slokaNumbers: number[]) => void;
   isLoading: boolean;
 }
 
@@ -10,23 +11,47 @@ const formatTitleForDisplay = (title: string): string => {
   return title.replace(/\s*-\s*\d+$/, '').trim();
 };
 
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
+const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onLocalSearch, isLoading }) => {
   const [query, setQuery] = useState('');
+  const [selectedItems, setSelectedItems] = useState<string[]>([]); // These will be sloka numbers as strings
   const [combineMantras, setCombineMantras] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim() && !isLoading) {
-      onSearch(query.trim(), combineMantras);
+    if (isLoading) return;
+
+    const textQuery = query.trim();
+    const selectedSlokaNumbers = selectedItems.map(Number);
+
+    if (textQuery) {
+        // User typed something, use AI search.
+        // We'll add the titles of selected slokas to the query for better context for the AI.
+        const selectedTitles = SLOKA_DATA
+            .filter(sloka => selectedSlokaNumbers.includes(sloka.slokaNumber))
+            .map(sloka => formatTitleForDisplay(sloka.title));
+
+        const finalQuery = [textQuery, ...selectedTitles].filter(Boolean).join(', ');
+        
+        if (finalQuery) {
+            onSearch(finalQuery, combineMantras);
+        }
+    } else if (selectedSlokaNumbers.length > 0) {
+        // User only selected from the dropdown, perform a local lookup.
+        onLocalSearch(selectedSlokaNumbers);
     }
   };
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-    const newQuery = selectedOptions.join(', ');
-    setQuery(newQuery);
+    setSelectedItems(selectedOptions);
   };
 
+  const selectedSlokaTitles = useMemo(() => {
+    const selectedNumbers = selectedItems.map(Number);
+    return SLOKA_DATA
+        .filter(sloka => selectedNumbers.includes(sloka.slokaNumber))
+        .map(sloka => formatTitleForDisplay(sloka.title));
+  }, [selectedItems]);
 
   return (
     <div className="w-full max-w-xl mx-auto my-6 animate-landing animate-fade-in" style={{ animationDelay: '1.3s' }}>
@@ -36,19 +61,30 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Describe your problem or select from the list below"
+              placeholder="Describe your problem (e.g., 'for success in exams')"
               className="w-full px-5 py-3 text-lg text-amber-900 placeholder-amber-600/70 bg-transparent focus:outline-none flex-grow"
               disabled={isLoading}
             />
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (!query.trim() && selectedItems.length === 0)}
               className="w-full sm:w-auto px-8 py-3 bg-amber-800 text-white font-bold rounded-full hover:bg-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-opacity-50 transition-all duration-300 disabled:bg-slate-400 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Searching...' : 'Find Mantra'}
             </button>
         </div>
       </form>
+
+      {selectedSlokaTitles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4 justify-center px-4">
+              {selectedSlokaTitles.map((title, index) => (
+                  <span key={index} className="bg-amber-200/80 text-amber-800 text-xs font-semibold px-3 py-1 rounded-full animate-fade-in">
+                      {title}
+                  </span>
+              ))}
+          </div>
+      )}
+
        <div className="text-center mt-4 text-sm text-amber-800 flex flex-col items-center gap-3">
             <div className="flex items-center">
                 <input 
@@ -70,6 +106,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
                  <select
                     id="sloka-select"
                     multiple
+                    value={selectedItems}
                     onChange={handleSelectChange}
                     className="w-full p-2 border border-amber-300 rounded-lg shadow-sm bg-white/80 focus:ring-amber-500 focus:border-amber-500 scrollbar-thin scrollbar-thumb-amber-300 scrollbar-track-amber-100"
                     size={8}
@@ -78,7 +115,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch, isLoading }) => {
                     {SLOKA_DATA.map((sloka) => {
                         const displayTitle = formatTitleForDisplay(sloka.title);
                         return (
-                            <option key={sloka.slokaNumber} value={displayTitle}>
+                            <option key={sloka.slokaNumber} value={String(sloka.slokaNumber)}>
                                 {`#${sloka.slokaNumber}: ${displayTitle}`}
                             </option>
                         );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import MantraCard from './components/MantraCard';
@@ -15,6 +15,9 @@ import TantraBook from './components/TantraBook';
 import AIChat from './components/AIChat';
 import BookmarkManager from './components/BookmarkManager';
 import SlokaAnalysisModal from './components/SlokaAnalysisModal';
+import CombinedMantraModal from './components/CombinedMantraModal';
+import BookmarkToggleButton from './components/BookmarkToggleButton';
+import HowToUseModal from './components/HowToUseModal';
 import { findMantraForProblem, translateSearchResults } from './services/geminiService';
 import { SLOKA_DATA } from './constants/slokaData';
 import { VEDIC_REMEDIES_DATA } from './constants/remediesData';
@@ -31,16 +34,21 @@ const CODE_LANG_MAP: { [key: string]: string } = {
 };
 type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'aiChat';
 
+const formatTitleForDisplay = (title: string): string => {
+    return title.replace(/\s*-\s*\d+$/, '').trim();
+};
 
 // --- Search Results Component ---
 interface SearchResultsProps {
   results: SearchResult[];
-  onToggleSelect: (mantra: Sloka) => void;
-  isSelected: (mantra: Sloka) => boolean;
+  bookmarkedItems: BookmarkedItem[];
+  highlightedSections: Record<string, string[]>;
+  onToggleSloka: (sloka: Sloka) => void;
+  onToggleRemedy: (remedy: VedicRemedy) => void;
+  onToggleSlokaSection: (sloka: Sloka, sectionTitle: string) => void;
+  onToggleRemedySection: (remedy: VedicRemedy, sectionTitle: string) => void;
   onExplainRequest: (slokas: Sloka[]) => void;
   onAnalyzeRequest: (sloka: Sloka) => void;
-  onToggleRemedy: (remedy: VedicRemedy) => void;
-  isRemedySelected: (remedy: VedicRemedy) => boolean;
 }
 
 const ChevronDownIcon = () => (
@@ -49,23 +57,53 @@ const ChevronDownIcon = () => (
     </svg>
 );
 
-const SearchResults: React.FC<SearchResultsProps> = ({ results, onToggleSelect, isSelected, onExplainRequest, onAnalyzeRequest, onToggleRemedy, isRemedySelected }) => {
-    const [openIndex, setOpenIndex] = useState<number | null>(0);
+const SearchResults: React.FC<SearchResultsProps> = (props) => {
+    const { 
+        results, bookmarkedItems, highlightedSections, 
+        onToggleSloka, onToggleRemedy, onToggleSlokaSection, onToggleRemedySection,
+        onExplainRequest, onAnalyzeRequest 
+    } = props;
+    
+    const [openIndex, setOpenIndex] = useState<number | null>(() => {
+        const firstHighlightedIndex = results.findIndex(result => {
+            const key = result.type === 'sloka' 
+                ? `sloka_${result.data.slokaNumber}` 
+                : `remedy_${result.data.id}`;
+            return highlightedSections && highlightedSections[key];
+        });
+        return firstHighlightedIndex !== -1 ? firstHighlightedIndex : 0;
+    });
+
 
     if (results.length === 1) {
         const result = results[0];
+        const bookmarkedItem = bookmarkedItems.find(i => i.type === result.type && ('slokaNumber' in i.data ? i.data.slokaNumber : i.data.id) === ('slokaNumber' in result.data ? result.data.slokaNumber : result.data.id));
+        const highlightKey = result.type === 'sloka' ? `sloka_${result.data.slokaNumber}` : `remedy_${result.data.id}`;
+        
         if (result.type === 'sloka') {
             return (
                 <MantraCard
                     mantra={result.data}
-                    onToggleSelect={onToggleSelect}
-                    isSelected={isSelected(result.data)}
+                    onToggleSelect={() => onToggleSloka(result.data)}
+                    isSelected={!!bookmarkedItem}
+                    bookmarkedSections={bookmarkedItem?.sections || []}
+                    highlightedSections={highlightedSections[highlightKey] || []}
+                    onToggleSectionBookmark={(title) => onToggleSlokaSection(result.data, title)}
                     onExplainRequest={() => onExplainRequest([result.data])}
                     onAnalyzeRequest={onAnalyzeRequest}
                 />
             );
         } else { // type is 'remedy'
-            return <RemedyCard remedy={result.data} onToggleSelect={onToggleRemedy} isSelected={isRemedySelected(result.data)} />;
+            return (
+                <RemedyCard 
+                    remedy={result.data} 
+                    onToggleSelect={() => onToggleRemedy(result.data)} 
+                    isSelected={!!bookmarkedItem}
+                    bookmarkedSections={bookmarkedItem?.sections || []}
+                    highlightedSections={highlightedSections[highlightKey] || []}
+                    onToggleSectionBookmark={(title) => onToggleRemedySection(result.data, title)}
+                />
+            );
         }
     }
 
@@ -80,11 +118,17 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results, onToggleSelect, 
             </p>
             {results.map((result, index) => {
                 const key = result.type === 'sloka' ? result.data.slokaNumber : result.data.id;
-                const title = result.data.title;
+                const title = result.type === 'sloka' ? formatTitleForDisplay(result.data.title) : result.data.title;
                 const identifier = result.type === 'sloka' 
                     ? `Sloka #${result.data.slokaNumber}` 
                     : `Remedy #${result.data.id}`;
 
+                const bookmarkedItem = bookmarkedItems.find(i => i.type === result.type && ('slokaNumber' in i.data ? i.data.slokaNumber : i.data.id) === key);
+                const isSelected = !!bookmarkedItem;
+                const bookmarkedSections = bookmarkedItem?.sections || [];
+                const highlightKey = result.type === 'sloka' ? `sloka_${key}` : `remedy_${key}`;
+                const highlightedSectionsList = highlightedSections[highlightKey] || [];
+                
                 return (
                     <div key={`${result.type}-${key}`} className="border border-amber-300/50 rounded-xl overflow-hidden shadow-lg bg-white/70 backdrop-blur-md">
                         <button
@@ -103,8 +147,12 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results, onToggleSelect, 
                                 {result.type === 'sloka' ? (
                                     <MantraCard
                                         mantra={result.data}
-                                        onToggleSelect={onToggleSelect}
-                                        isSelected={isSelected(result.data)}
+                                        onToggleSelect={() => onToggleSloka(result.data)}
+                                        isSelected={isSelected}
+                                        bookmarkedSections={bookmarkedSections}
+                                        highlightedSections={highlightedSectionsList}
+                                        // FIX: Use onToggleSlokaSection prop directly, as createSectionToggleHandler is out of scope.
+                                        onToggleSectionBookmark={(sectionTitle) => onToggleSlokaSection(result.data, sectionTitle)}
                                         onExplainRequest={() => onExplainRequest([result.data])}
                                         onAnalyzeRequest={onAnalyzeRequest}
                                         isNested={true}
@@ -113,8 +161,12 @@ const SearchResults: React.FC<SearchResultsProps> = ({ results, onToggleSelect, 
                                     <div className="p-6 md:p-8">
                                         <RemedyCard 
                                             remedy={result.data} 
-                                            onToggleSelect={onToggleRemedy} 
-                                            isSelected={isRemedySelected(result.data)} 
+                                            onToggleSelect={() => onToggleRemedy(result.data)} 
+                                            isSelected={isSelected}
+                                            bookmarkedSections={bookmarkedSections}
+                                            highlightedSections={highlightedSectionsList}
+                                            // FIX: Use onToggleRemedySection prop directly, as createSectionToggleHandler is out of scope.
+                                            onToggleSectionBookmark={(sectionTitle) => onToggleRemedySection(result.data, sectionTitle)}
                                         />
                                     </div>
                                 )}
@@ -134,53 +186,106 @@ const App: React.FC = () => {
   const [mantraResults, setMantraResults] = useState<SearchResult[] | null>(null); // For display
   
   // Selection states
-  const [bookmarkedItem, setBookmarkedItem] = useState<BookmarkedItem | null>(null);
+  const [bookmarkedItems, setBookmarkedItems] = useState<BookmarkedItem[]>([]);
   
   // UI/Flow states
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [slokasToExplain, setSlokasToExplain] = useState<Sloka[] | null>(null);
   const [slokaToAnalyze, setSlokaToAnalyze] = useState<Sloka | null>(null);
+  const [showCombinedMantraCreator, setShowCombinedMantraCreator] = useState<Sloka[] | null>(null);
   const [language, setLanguage] = useState('English');
   const [showIntroModal, setShowIntroModal] = useState<boolean>(false);
+  const [showHowToUseModal, setShowHowToUseModal] = useState<boolean>(false);
   const [mode, setMode] = useState<AppMode>('find');
   const [searchParams, setSearchParams] = useState<{query: string, combine: boolean} | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [initialViewTarget, setInitialViewTarget] = useState<{ mode: AppMode, id: number } | null>(null);
+  const initialViewTargetRef = useRef(initialViewTarget);
+  initialViewTargetRef.current = initialViewTarget;
+
+  const [showBookmarkPanel, setShowBookmarkPanel] = useState(true);
+  const [highlightedSections, setHighlightedSections] = useState<Record<string, string[]>>({});
+
 
   // Effect for loading bookmarked items from URL on initial load
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const loadedBookmarks: BookmarkedItem[] = [];
+    const loadedHighlights: Record<string, string[]> = {};
     
     const langCode = urlParams.get('lan');
     if (langCode && CODE_LANG_MAP[langCode]) {
         setLanguage(CODE_LANG_MAP[langCode]);
     }
 
-    const slokaId = urlParams.get('slokas')?.split(',').map(Number).filter(n => !isNaN(n))[0];
-    const remedyId = urlParams.get('remedies')?.split(',').map(Number).filter(n => !isNaN(n))[0];
-    const tantraId = urlParams.get('tantra')?.split(',').map(Number).filter(n => !isNaN(n))[0];
-
-    const bookmarkedSloka = slokaId ? SLOKA_DATA.find(s => s.slokaNumber === slokaId) : undefined;
-    const bookmarkedRemedy = remedyId ? VEDIC_REMEDIES_DATA.find(r => r.id === remedyId) : undefined;
-    const bookmarkedTantra = tantraId ? TANTRA_BOOK_DATA.find(t => t.id === tantraId) : undefined;
-
-    if (bookmarkedSloka) {
-        const item: BookmarkedItem = { type: 'sloka', data: bookmarkedSloka };
-        setBookmarkedItem(item);
-        setUntranslatedMantraResults([item]); // Also show it in main view
-        setMode('find');
-    } else if (bookmarkedRemedy) {
-        setBookmarkedItem({ type: 'remedy', data: bookmarkedRemedy });
-        setMode('vedic');
-        setInitialViewTarget({ mode: 'vedic', id: bookmarkedRemedy.id });
-    } else if (bookmarkedTantra) {
-        setBookmarkedItem({ type: 'tantra', data: bookmarkedTantra });
-        setMode('tantraBook');
-        setInitialViewTarget({ mode: 'tantraBook', id: bookmarkedTantra.id });
+    const slokaIds = urlParams.get('slokas')?.split(',').map(Number).filter(n => !isNaN(n));
+    if (slokaIds) {
+        slokaIds.forEach(id => {
+            const sloka = SLOKA_DATA.find(s => s.slokaNumber === id);
+            if (sloka) {
+                const sectionsParam = urlParams.get(`s${id}_sections`);
+                const sections = sectionsParam ? sectionsParam.split(',').map(decodeURIComponent) : undefined;
+                loadedBookmarks.push({ type: 'sloka', data: sloka, sections });
+                if (sections) {
+                    loadedHighlights[`sloka_${id}`] = sections;
+                }
+            }
+        });
     }
 
-    if (slokaId || remedyId || tantraId) {
+    const remedyIds = urlParams.get('remedies')?.split(',').map(Number).filter(n => !isNaN(n));
+    if (remedyIds) {
+        remedyIds.forEach(id => {
+            const remedy = VEDIC_REMEDIES_DATA.find(r => r.id === id);
+            if (remedy) {
+                 const sectionsParam = urlParams.get(`r${id}_sections`);
+                const sections = sectionsParam ? sectionsParam.split(',').map(decodeURIComponent) : undefined;
+                loadedBookmarks.push({ type: 'remedy', data: remedy, sections });
+                if (sections) {
+                    loadedHighlights[`remedy_${id}`] = sections;
+                }
+            }
+        });
+    }
+
+    const tantraIds = urlParams.get('tantra')?.split(',').map(Number).filter(n => !isNaN(n));
+    if (tantraIds) {
+        tantraIds.forEach(id => {
+            const tantra = TANTRA_BOOK_DATA.find(t => t.id === id);
+            if (tantra) {
+                const sectionsParam = urlParams.get(`t${id}_sections`);
+                const sections = sectionsParam ? sectionsParam.split(',').map(decodeURIComponent) : undefined;
+                loadedBookmarks.push({ type: 'tantra', data: tantra, sections });
+                if (sections) {
+                    loadedHighlights[`tantra_${id}`] = sections;
+                }
+            }
+        });
+    }
+
+    if (loadedBookmarks.length > 0) {
+        setBookmarkedItems(loadedBookmarks);
+        setHighlightedSections(loadedHighlights);
+        
+        // Set initial view with priority: remedy > tantra > sloka
+        const firstRemedy = loadedBookmarks.find(i => i.type === 'remedy');
+        const firstTantra = loadedBookmarks.find(i => i.type === 'tantra');
+        const firstSloka = loadedBookmarks.find(i => i.type === 'sloka');
+
+        if (firstRemedy) {
+            setMode('vedic');
+            setInitialViewTarget({ mode: 'vedic', id: (firstRemedy.data as VedicRemedy).id });
+        } else if (firstTantra) {
+            setMode('tantraBook');
+            setInitialViewTarget({ mode: 'tantraBook', id: (firstTantra.data as TantraBookMantra).id });
+        } else if (firstSloka) {
+            setMode('lookup');
+            setInitialViewTarget({ mode: 'lookup', id: (firstSloka.data as Sloka).slokaNumber });
+        }
+    }
+
+    if (urlParams.toString()) {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
     
@@ -192,6 +297,26 @@ const App: React.FC = () => {
     setUntranslatedMantraResults(null);
     setMantraResults(null);
     setSearchParams({ query, combine });
+  };
+  
+  const handleLocalSearch = (slokaNumbers: number[]) => {
+    setUntranslatedMantraResults(null);
+    setMantraResults(null);
+    setSearchParams(null); // Clear any pending AI search
+    setError(null);
+
+    const localResults: SearchResult[] = slokaNumbers
+      .map(num => {
+        const sloka = SLOKA_DATA.find(s => s.slokaNumber === num);
+        return sloka ? { type: 'sloka' as const, data: sloka } : null;
+      })
+      .filter((item): item is { type: "sloka"; data: Sloka } => item !== null);
+
+    if (localResults.length > 0) {
+      setUntranslatedMantraResults(localResults);
+    } else {
+      setError("Could not find the selected slokas.");
+    }
   };
 
   // Effect to perform AI search
@@ -217,11 +342,23 @@ const App: React.FC = () => {
                     const remedy = VEDIC_REMEDIES_DATA.find(r => r.id === item.identifier);
                     return remedy ? { type: 'remedy' as const, data: remedy } : null;
                 }
-            }).filter((item): item is SearchResult => item !== null);
+            }).filter(item => item !== null) as SearchResult[];
             
-            if (localResults.length === 0) {
+            if (localResults.length === 0 && identifiers.length > 0) {
                  throw new Error("The AI returned identifiers that could not be found in our records.");
             }
+            
+            // Prioritize Soundarya Lahari slokas in the results
+            localResults.sort((a, b) => {
+                if (a.type === 'sloka' && b.type !== 'sloka') {
+                    return -1; // a (sloka) comes before b (remedy)
+                }
+                if (a.type !== 'sloka' && b.type === 'sloka') {
+                    return 1; // b (sloka) comes before a (remedy)
+                }
+                return 0; // Keep original order for items of the same type
+            });
+
             setUntranslatedMantraResults(localResults);
 
         } catch (err: any) {
@@ -258,37 +395,117 @@ const App: React.FC = () => {
       translate();
   }, [untranslatedMantraResults, language, isInitialLoad]);
   
-  const handleToggleMantra = (mantraToToggle: Sloka) => {
-    const newItem: BookmarkedItem = { type: 'sloka', data: mantraToToggle };
-    if (bookmarkedItem?.type === 'sloka' && bookmarkedItem.data.slokaNumber === mantraToToggle.slokaNumber) {
-      setBookmarkedItem(null);
-    } else {
-      setBookmarkedItem(newItem);
-    }
+  const handleToggleSloka = (slokaToToggle: Sloka) => {
+      const existingIndex = bookmarkedItems.findIndex(item => 
+          item.type === 'sloka' && item.data.slokaNumber === slokaToToggle.slokaNumber
+      );
+
+      if (existingIndex > -1) {
+          setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+      } else {
+          const newItem: BookmarkedItem = { type: 'sloka', data: slokaToToggle };
+          setBookmarkedItems(items => [...items, newItem]);
+          setShowBookmarkPanel(true);
+      }
   };
 
   const handleToggleRemedy = (remedyToToggle: VedicRemedy) => {
-    const newItem: BookmarkedItem = { type: 'remedy', data: remedyToToggle };
-    if (bookmarkedItem?.type === 'remedy' && bookmarkedItem.data.id === remedyToToggle.id) {
-        setBookmarkedItem(null);
-    } else {
-        setBookmarkedItem(newItem);
-    }
+      const existingIndex = bookmarkedItems.findIndex(item => 
+          item.type === 'remedy' && item.data.id === remedyToToggle.id
+      );
+
+      if (existingIndex > -1) {
+          setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+      } else {
+          const newItem: BookmarkedItem = { type: 'remedy', data: remedyToToggle };
+          setBookmarkedItems(items => [...items, newItem]);
+          setShowBookmarkPanel(true);
+      }
   };
 
   const handleToggleTantraMantra = (mantraToToggle: TantraBookMantra) => {
-    const newItem: BookmarkedItem = { type: 'tantra', data: mantraToToggle };
-    if (bookmarkedItem?.type === 'tantra' && bookmarkedItem.data.id === mantraToToggle.id) {
-        setBookmarkedItem(null);
-    } else {
-        setBookmarkedItem(newItem);
-    }
+      const existingIndex = bookmarkedItems.findIndex(item => 
+          item.type === 'tantra' && item.data.id === mantraToToggle.id
+      );
+
+      if (existingIndex > -1) {
+          setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+      } else {
+          const newItem: BookmarkedItem = { type: 'tantra', data: mantraToToggle };
+          setBookmarkedItems(items => [...items, newItem]);
+          setShowBookmarkPanel(true);
+      }
   };
 
-  const isMantraSelected = (mantra: Sloka) => bookmarkedItem?.type === 'sloka' && bookmarkedItem.data.slokaNumber === mantra.slokaNumber;
-  const isRemedySelected = (remedy: VedicRemedy) => bookmarkedItem?.type === 'remedy' && bookmarkedItem.data.id === remedy.id;
-  const isTantraMantraSelected = (mantra: TantraBookMantra) => bookmarkedItem?.type === 'tantra' && bookmarkedItem.data.id === mantra.id;
+  const createSectionToggleHandler = <T extends Sloka | VedicRemedy | TantraBookMantra>(
+    itemData: T,
+    itemType: BookmarkedItem['type']
+  ) => (sectionTitle: string) => {
+      const idKey = 'slokaNumber' in itemData ? 'slokaNumber' : 'id';
+      const itemId = itemData[idKey as keyof T];
 
+      setBookmarkedItems(currentItems => {
+        const itemIndex = currentItems.findIndex(item =>
+            item.type === itemType &&
+            (item.data as T)[idKey as keyof T] === itemId
+        );
+
+        if (itemIndex === -1) {
+            const newItem: BookmarkedItem = { type: itemType, data: itemData, sections: [sectionTitle] } as any;
+            setShowBookmarkPanel(true);
+            return [...currentItems, newItem];
+        } else {
+            const updatedItems = [...currentItems];
+            const existingItem = { ...updatedItems[itemIndex] };
+            const existingSections = existingItem.sections || [];
+
+            if (existingSections.includes(sectionTitle)) {
+                existingItem.sections = existingSections.filter(s => s !== sectionTitle);
+            } else {
+                existingItem.sections = [...existingSections, sectionTitle];
+            }
+            updatedItems[itemIndex] = existingItem;
+            return updatedItems;
+        }
+      });
+  };
+
+  const handleRemoveBookmark = (itemToRemove: BookmarkedItem) => {
+    setBookmarkedItems(currentItems => currentItems.filter(item => {
+        if (item.type !== itemToRemove.type) return true;
+        switch(item.type) {
+            case 'sloka':
+                return (item.data as Sloka).slokaNumber !== (itemToRemove.data as Sloka).slokaNumber;
+            case 'remedy':
+                return (item.data as VedicRemedy).id !== (itemToRemove.data as VedicRemedy).id;
+            case 'tantra':
+                return (item.data as TantraBookMantra).id !== (itemToRemove.data as TantraBookMantra).id;
+            default:
+                return true;
+        }
+    }));
+  };
+
+    const handleNavigateToBookmark = (item: BookmarkedItem) => {
+        setShowBookmarkPanel(false); // Hide panel for better view
+        setInitialViewTarget(null); // Reset target
+        setTimeout(() => { // Use timeout to ensure state update propagates
+            switch (item.type) {
+                case 'sloka':
+                    setMode('lookup');
+                    setInitialViewTarget({ mode: 'lookup', id: item.data.slokaNumber });
+                    break;
+                case 'remedy':
+                    setMode('vedic');
+                    setInitialViewTarget({ mode: 'vedic', id: item.data.id });
+                    break;
+                case 'tantra':
+                    setMode('tantraBook');
+                    setInitialViewTarget({ mode: 'tantraBook', id: item.data.id });
+                    break;
+            }
+        }, 0);
+    };
 
   const handleExplainRequest = (slokas: Sloka[]) => {
     setSlokasToExplain(slokas);
@@ -297,18 +514,21 @@ const App: React.FC = () => {
   const handleAnalyzeRequest = (sloka: Sloka) => {
     setSlokaToAnalyze(sloka);
   };
-
-  const handleCloseExplainer = () => {
-    setSlokasToExplain(null);
-  };
   
-  const handleCloseAnalysis = () => {
-    setSlokaToAnalyze(null);
+  const handleCreateCombinedMantraRequest = (slokas: Sloka[]) => {
+    setShowCombinedMantraCreator(slokas);
   };
+
+  const handleCloseExplainer = () => setSlokasToExplain(null);
+  const handleCloseAnalysis = () => setSlokaToAnalyze(null);
+  const handleCloseCombinedMantraCreator = () => setShowCombinedMantraCreator(null);
 
   const renderNavButton = (buttonMode: AppMode, text: string, index: number) => (
     <button
-      onClick={() => setMode(buttonMode)}
+      onClick={() => {
+        setMode(buttonMode);
+        setInitialViewTarget(null); // Clear target when manually changing modes
+      }}
       className={`px-6 py-2 rounded-full text-lg font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 animate-landing animate-fade-in ${
         mode === buttonMode
           ? 'bg-amber-800 text-white shadow-md'
@@ -325,13 +545,21 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100 text-slate-800 p-4 sm:p-8 flex flex-col items-center">
       <main className="w-full">
         <Header />
-         <div className="text-center mb-4 animate-landing animate-fade-in" style={{ animationDelay: '0.4s' }}>
+         <div className="text-center mb-4 animate-landing animate-fade-in flex justify-center items-center gap-4" style={{ animationDelay: '0.4s' }}>
              <button
                 onClick={() => setShowIntroModal(true)}
                 className="text-amber-800 hover:text-amber-900 underline transition-colors"
                 aria-label="Learn more about Soundarya Lahari"
              >
                 What is Soundarya Lahari?
+             </button>
+             <span className="text-amber-300">|</span>
+             <button
+                onClick={() => setShowHowToUseModal(true)}
+                className="text-amber-800 hover:text-amber-900 underline transition-colors"
+                aria-label="Learn how to use these mantras"
+             >
+                How to Use These Mantras
              </button>
          </div>
 
@@ -358,27 +586,39 @@ const App: React.FC = () => {
               </select>
             </div>
             <BookmarkManager
-              bookmarkedItem={bookmarkedItem}
+              bookmarkedItems={bookmarkedItems}
               language={language}
             />
         </div>
-
+        
         {mode === 'find' && (
           <>
-            <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+            <SearchBar 
+                onSearch={handleSearch} 
+                onLocalSearch={handleLocalSearch}
+                isLoading={isLoading} 
+            />
             <div className="mt-8 space-y-8">
               {isLoading && <LoadingSpinner />}
               {error && !isLoading && <ErrorMessage message={error} />}
-              {mantraResults && !isLoading && (
+              {mantraResults && mantraResults.length > 0 && !isLoading && (
                 <SearchResults
                   results={mantraResults}
-                  onToggleSelect={handleToggleMantra}
-                  isSelected={isMantraSelected}
+                  bookmarkedItems={bookmarkedItems}
+                  highlightedSections={highlightedSections}
+                  onToggleSloka={handleToggleSloka}
+                  onToggleRemedy={handleToggleRemedy}
+                  onToggleSlokaSection={(sloka, title) => createSectionToggleHandler(sloka, 'sloka')(title)}
+                  onToggleRemedySection={(remedy, title) => createSectionToggleHandler(remedy, 'remedy')(title)}
                   onExplainRequest={handleExplainRequest}
                   onAnalyzeRequest={handleAnalyzeRequest}
-                  onToggleRemedy={handleToggleRemedy}
-                  isRemedySelected={isRemedySelected}
                 />
+              )}
+              {mantraResults && mantraResults.length === 0 && !isLoading && (
+                 <div className="text-center text-amber-700 mt-16 text-lg animate-fade-in">
+                    <p>No specific mantra found for your query.</p>
+                    <p className="mt-2 text-base">Please try rephrasing your problem or explore the other sections.</p>
+                </div>
               )}
               {!isLoading && !error && !mantraResults && !untranslatedMantraResults && (
                  <div className="text-center text-amber-700 mt-16 text-lg">
@@ -392,29 +632,36 @@ const App: React.FC = () => {
         
         {mode === 'lookup' && (
            <MantraLookup 
-                onToggleSelect={handleToggleMantra}
-                isSelected={isMantraSelected}
+                bookmarkedItems={bookmarkedItems}
+                highlightedSections={highlightedSections}
+                onToggleSelect={handleToggleSloka}
+                onToggleSectionBookmark={createSectionToggleHandler}
                 onExplainRequest={handleExplainRequest}
                 onAnalyzeRequest={handleAnalyzeRequest}
                 language={language}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'lookup' ? initialViewTargetRef.current.id : null}
             />
         )}
 
         {mode === 'vedic' && (
            <VedicRemedies 
+                bookmarkedItems={bookmarkedItems}
+                highlightedSections={highlightedSections}
                 onToggleSelect={handleToggleRemedy}
-                isRemedySelected={isRemedySelected}
+                onToggleSectionBookmark={createSectionToggleHandler}
                 language={language}
-                initialSelectedId={initialViewTarget?.mode === 'vedic' ? initialViewTarget.id : null}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'vedic' ? initialViewTargetRef.current.id : null}
            />
         )}
 
         {mode === 'tantraBook' && (
            <TantraBook 
+                bookmarkedItems={bookmarkedItems}
+                highlightedSections={highlightedSections}
                 onToggleSelect={handleToggleTantraMantra}
-                isTantraMantraSelected={isTantraMantraSelected}
+                onToggleSectionBookmark={createSectionToggleHandler}
                 language={language}
-                initialSelectedId={initialViewTarget?.mode === 'tantraBook' ? initialViewTarget.id : null}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'tantraBook' ? initialViewTargetRef.current.id : null}
            />
         )}
 
@@ -423,11 +670,21 @@ const App: React.FC = () => {
         )}
       </main>
       
-      {bookmarkedItem && (
+      {bookmarkedItems.length > 0 && showBookmarkPanel && (
         <CombinedSelections 
-            bookmarkedItem={bookmarkedItem}
-            onRemoveBookmark={() => setBookmarkedItem(null)}
-            onExplainRequest={(slokas) => handleExplainRequest(slokas)}
+            bookmarkedItems={bookmarkedItems}
+            onRemoveBookmark={handleRemoveBookmark}
+            onExplainRequest={handleExplainRequest}
+            onCreateCombinedMantraRequest={handleCreateCombinedMantraRequest}
+            onClose={() => setShowBookmarkPanel(false)}
+            onNavigateToBookmark={handleNavigateToBookmark}
+        />
+      )}
+
+      {bookmarkedItems.length > 0 && !showBookmarkPanel && (
+        <BookmarkToggleButton
+            count={bookmarkedItems.length}
+            onClick={() => setShowBookmarkPanel(true)}
         />
       )}
 
@@ -446,8 +703,20 @@ const App: React.FC = () => {
         />
       )}
 
+      {showCombinedMantraCreator && (
+        <CombinedMantraModal
+            slokas={showCombinedMantraCreator}
+            language={language}
+            onClose={handleCloseCombinedMantraCreator}
+        />
+      )}
+
       {showIntroModal && (
         <IntroModal onClose={() => setShowIntroModal(false)} />
+      )}
+      
+      {showHowToUseModal && (
+        <HowToUseModal initialLanguage={language} onClose={() => setShowHowToUseModal(false)} />
       )}
 
       <footer className="mt-auto pt-8 text-center text-amber-700/80 text-sm animate-landing animate-slide-in-up" style={{ animationDelay: '1.5s' }}>
@@ -460,7 +729,7 @@ const App: React.FC = () => {
             <span>|</span>
             <a href="https://github.com/Ishanoshada/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">GitHub</a>
         </div>
-        <p className="mt-2">&copy; 2024 Divine Guidance Systems</p>
+        <p className="mt-2">&copy; 2025 Divine Guidance Systems</p>
       </footer>
     </div>
   );

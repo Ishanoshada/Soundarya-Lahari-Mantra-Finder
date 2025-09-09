@@ -1,19 +1,23 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VEDIC_REMEDIES_DATA } from '../constants/remediesData';
 import RemedyCard from './RemedyCard';
-import type { VedicRemedy } from '../types';
+// FIX: Import BookmarkedItem to use in props.
+import type { VedicRemedy, BookmarkedItem } from '../types';
 import { translateVedicRemedies } from '../services/geminiService';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 
+// FIX: Update props to align with App.tsx and handle bookmarking correctly.
 interface VedicRemediesProps {
+    bookmarkedItems: BookmarkedItem[];
+    highlightedSections: Record<string, string[]>;
     onToggleSelect: (remedy: VedicRemedy) => void;
-    isRemedySelected: (remedy: VedicRemedy) => boolean;
+    onToggleSectionBookmark: (itemData: VedicRemedy, itemType: 'remedy') => (sectionTitle: string) => void;
     language: string;
     initialSelectedId: number | null;
 }
 
-const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, isRemedySelected, language, initialSelectedId }) => {
+const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRemedyId, setSelectedRemedyId] = useState<number | null>(initialSelectedId || VEDIC_REMEDIES_DATA[0]?.id || null);
     
@@ -136,13 +140,23 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, isRemedyS
                 <div className="md:col-span-2">
                     {isCardLoading && <LoadingSpinner />}
                     {!isCardLoading && error && <ErrorMessage message={error} />}
-                    {!isCardLoading && !error && remedyForDisplay ? (
-                        <RemedyCard 
-                            remedy={remedyForDisplay} 
-                            onToggleSelect={onToggleSelect}
-                            isSelected={isRemedySelected(remedyForDisplay)}
-                        />
-                    ) : (
+                    {/* FIX: Calculate isSelected and pass correct props to RemedyCard. */}
+                    {!isCardLoading && !error && remedyForDisplay ? (() => {
+                        const bookmarkedItem = bookmarkedItems.find(i => i.type === 'remedy' && i.data.id === remedyForDisplay.id);
+                        const isSelected = !!bookmarkedItem;
+                        const bookmarkedSections = bookmarkedItem?.sections || [];
+                        const highlightKey = `remedy_${remedyForDisplay.id}`;
+                        return (
+                            <RemedyCard 
+                                remedy={remedyForDisplay} 
+                                onToggleSelect={onToggleSelect}
+                                isSelected={isSelected}
+                                bookmarkedSections={bookmarkedSections}
+                                highlightedSections={highlightedSections[highlightKey] || []}
+                                onToggleSectionBookmark={onToggleSectionBookmark(remedyForDisplay, 'remedy')}
+                            />
+                        );
+                    })() : (
                         !isCardLoading && !error && (
                             <div className="flex items-center justify-center h-full bg-white/60 p-4 rounded-xl border border-amber-300/50 shadow-lg min-h-[400px]">
                                 <p className="text-amber-700 text-center">

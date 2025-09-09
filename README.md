@@ -95,11 +95,15 @@ This application is a multi-faceted spiritual toolkit. You can seamlessly switch
 - **Explain Bija Mantra:** For any Soundarya Lahari sloka, click this button to open a modal that provides a detailed, AI-generated analysis of its Bija Mantra(s), including associated deities, chakras, and benefits, all presented in a clear table format.
 - **Analyze Sloka:** Get a concise, structured analysis of a sloka's core purpose, its key spiritual connections, and actionable guidance.
 
-### 6. Personalized Bookmarking & Sharing
+### 6. Audio Pronunciation
+- **Authentic Sound:** A speaker icon appears next to each Soundarya Lahari Bija Mantra.
+- **Browser-Powered:** Clicking the icon utilizes the browser's built-in Web Speech API (often powered by Google's engine) to provide an audio pronunciation. The system is configured to prefer a Sanskrit voice when available, aiding in the correct recitation for your practice (sadhana).
+
+### 7. Personalized Bookmarking & Sharing
 - **Bookmark for Sadhana:** Select any mantra or remedy from any section to add it to your personalized bookmark panel. This allows you to create a focused list for your spiritual practice (sadhana).
 - **Shareable Links:** From the "Bookmark & Share" menu, you can generate a unique URL that saves your bookmarked item and language preference. This link can be saved for later or shared with others, allowing them to view the exact practice you selected.
 
-### 7. Multilingual Support & Effortless Sharing
+### 8. Multilingual Support & Effortless Sharing
 - **Global Accessibility:** Key information is translated by the Gemini API into multiple languages, including English, Sinhala, Tamil, Hindi, and Malayalam.
 - **Screenshot Capture:** Capture and share beautiful, watermarked images of any mantra card, explanation, analysis popup, or even the entire application view with a single click.
 
@@ -123,27 +127,36 @@ A **Bija (seed) mantra** is a single-syllable sound that holds a potent, concent
 
 Below is a more comprehensive list of key Bija Mantras found within or related to the traditions in this application:
 
-| Bija Mantra | Primary Energy                   | Brief Usage                                                                  |
-|-------------|----------------------------------|------------------------------------------------------------------------------|
-| **ॐ (Om)**  | Primordial Sound                 | For control of the senses, physical energy, and connection with the universe.  |
-| **ऐं (Aim)** | Knowledge & Speech (Saraswati)   | To enhance knowledge, eloquence, and artistic abilities.                      |
-| **ह्रीं (Hreem)** | Universal Energy (Maya/Bhuvaneshvari) | For influence, dispelling illusion, purification, and connecting with the Goddess. |
-| **क्लीं (Kleem)** | Attraction (Kama/Krishna)        | For prosperity, attraction, strengthening relationships, and fulfilling desires. |
-| **श्रीं (Shreem)** | Wealth & Prosperity (Lakshmi)    | To attain wealth, knowledge, academic success, and abundance.                  |
-| **दुं (Dum)** | Protection (Durga)               | For protection from diseases, fear, poverty, and negative forces.              |
-| **सौः (Sauh)** | Supreme Consciousness (Shakti)   | To attain intelligence, eloquence, and higher spiritual states.              |
-| **क्रों (KrOM)** | Potent Action                    | Used to gain mastery over natural forces and for assertive action.           |
-| **रं (Ram)**  | Fire (Agni)                      | For freedom from attachments and debts, and fulfillment of desires.          |
-| **यं (Yam)**  | Air (Vayu)                       | To control natural elements, foster harmony, and improve relationships.      |
-| **वं (Vam)**  | Water (Jala/Varuna)              | To gain scriptural knowledge and proficiency in various languages.             |
-| **लं (Lam)**  | Earth (Prithvi)                  | For grounding, stability, and material security.                             |
-| **हं (Ham)**  | Ether (Akasha)                   | For nourishment, abundance, and connection to the etheric realm.              |
-| **सं (Sam)**  | Creativity                       | To develop poetic imagination and creative intellect.                        |
-| **गं (Gam)**  | Obstacle Removal (Ganesha)       | Removes obstacles and paves the way for success.                             |
-| **क्षं (Ksham)** | Completion & Forgiveness         | Promotes forgiveness, patience, and the ability to complete tasks.           |
-| **हूं (Hoom)** | Protection & Destruction         | A powerful mantra for protection and forceful destruction of negativity.       |
-| **फट् (Phat)** | Dispelling Negative Forces       | Used to energetically cut through and dispel negative forces or obstacles.   |
-| **थं (Tham)** | Stilling / Immobilization        | Used to stop or still negative forces, diseases, and obstacles.              |
+| Bija Mantra        | Primary Energy                         | Brief Usage                                                                        |
+| ------------------ | -------------------------------------- | ---------------------------------------------------------------------------------- |
+| **ॐ (Om)**         | Primordial Sound                       | For control of the senses, physical energy, and connection with the universe.      |
+| **ऐं (Aim)**       | Knowledge & Speech                     | To enhance knowledge, eloquence, and artistic abilities.                            |
+| **ह्रीं (Hreem)**   | Universal Energy                       | For influence, dispelling illusion, purification, and connecting with universal energy. |
+| **क्लीं (Kleem)**   | Energy of Attraction                   | For prosperity, attraction, strengthening relationships, and overcoming enemies.  |
+| **श्रीं (Shreem)**  | Wealth & Prosperity                    | To attain wealth, knowledge, academic success, and abundance.                        |
+| **दुं (Dum)**      | Protection                             | For protection from diseases, fear, and poverty.                                   |
+| **सौः (Sauh)**     | Supreme Consciousness                  | To attain intelligence, eloquence, and higher spiritual states.                   |
+| **क्रों (KrOM)**   | Potent Action                          | Used to gain mastery over natural forces.                                          |
+| **रं (Ram)**       | Fire (Agni)                            | For freedom from attachments and debts, and fulfillment of desires.                |
+| **यं (Yam)**       | Air (Vayu)                             | To control natural elements, foster harmony, and improve relationships.            |
+| **वं (Vam)**       | Water (Jala)                           | To gain scriptural knowledge and proficiency in various languages.                   |
+| **लं (Lam)**       | Earth (Prithvi)                        | For grounding, stability, and material security.                                   |
+| **हं (Ham)**       | Ether (Akasha)                         | For nourishment, abundance, and connection to the etheric realm.                   |
+| **सं (Sam)**       | Creativity                             | To develop poetic imagination and creative intellect.                              |
+| **कं (Kam)**       | Happiness & Healing                    | For promoting joy, contentment, and healing.                                       |
+| **थं (Tham)**      | Negation / Stilling                    | Used to stop or still negative forces, diseases, and obstacles.                    |
+| **गं (Gam)**       | Ganesha / Obstacle Removal             | Removes obstacles and paves the way for success.                                   |
+| **ह्स्रौँ (Hsraum)**| Spiritual Transformation               | For spiritual transformation, protection, and higher consciousness.                |
+| **क्षं (Ksham)**   | Completion & Forgiveness               | Promotes forgiveness, patience, and the ability to complete tasks.                 |
+| **भं (Bham)**      | Fiery Transformation (Mars)            | Invokes a fiery, transformative energy for courage and action.                     |
+| **नं (Nam)**       | Liberation & Detachment                | Aids in achieving liberation, detachment, and dispelling ego.                      |
+| **सूं (Soom)**     | Lunar Energy                           | Connects with lunar energy for nourishment, healing, and intuition.                |
+| **हूं (Hoom)**     | Protection / Destruction of Negativity | A powerful mantra for protection and forceful destruction of negativity.             |
+| **फट् (Phat)**     | Dispelling Negative Forces             | Used to energetically cut through and dispel negative forces or obstacles.         |
+| **जं (Jam)**       | Mental Clarity                         | Enhances mental clarity, wisdom, and intellectual power.                           |
+| **शं (Sham)**      | Peace & Tranquility                    | Invokes peace, tranquility, and well-being.                                        |
+| **टं (Tam)**       | Lunar Influence                        | Relates to lunar influence, intuition, and inner reflection.                       |
+| **पं (Pam)**       | Planetary Harmony                      | Helps in harmonizing planetary influences and energies.                            |
 
 
 ---
@@ -227,8 +240,6 @@ Contributions are welcome! If you have suggestions for improvements, new feature
 
 ## Future Roadmap
 - [ ] User accounts for saving and managing multiple Sadhana lists.
-- [ ] Audio pronunciations for mantras and slokas.
-- [ ] Deeper astrological integrations to suggest remedies based on planetary positions.
 - [ ] Addition of more sacred texts and spiritual traditions.
 - [ ] Thematic guided meditations based on selected mantras.
 

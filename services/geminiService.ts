@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { SLOKA_DATA } from "../constants/slokaData";
 import { VEDIC_REMEDIES_DATA } from "../constants/remediesData";
 import { TANTRA_BOOK_DATA } from "../constants/tantraBookData";
-import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, ChatMessage, MantraIdentifier } from "../types";
+import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, ChatMessage, MantraIdentifier, CombinedMantraResponse } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -30,13 +30,14 @@ export const findMantraForProblem = async (problem: string, combine: boolean): P
 User's Problem: "${problem}"
 
 Analyze the 'beneficialResults', 'literalResults', and 'title' of the slokas, and the 'purpose' and 'title' of the remedies to find the best match.
+
 ${ combine 
-    ? "The user wants a powerful combination. Please identify the 2 or 3 most synergistic slokas or remedies that work together to solve this problem. You can mix and match from both sources if it makes spiritual sense."
-    : "Identify the single best-matching sloka OR remedy."
+    ? "The user wants a powerful, synergistic combination. Please identify the 2 or 3 solutions that work best *together* to solve this problem. You can mix and match from both sources."
+    : "Identify all highly relevant slokas AND remedies that individually address the user's problem. Return a result from each dataset if a strong match is found in both. Limit the total results to a maximum of 3."
 }
 
 CRITICAL INSTRUCTIONS:
-1.  Your entire response MUST be a JSON object (or an array of objects) matching the provided schema.
+1.  Your entire response MUST be a JSON array of objects matching the provided schema. If you find no matches, return an empty array [].
 2.  For each recommended item, you must return an object with two fields:
     - "source": Must be either the exact string 'Soundarya Lahari' or 'Vedic Remedies'.
     - "identifier": Must be the integer value from the 'slokaNumber' field (for Soundarya Lahari) or the 'id' field (for Vedic Remedies).
@@ -55,18 +56,18 @@ ${remediesDataString}
         contents: prompt,
         config: {
           responseMimeType: "application/json",
-          responseSchema: combine ? combinedIdentifierSchema : identifierSchema,
+          responseSchema: combinedIdentifierSchema,
         },
       });
 
     const jsonText = response.text.trim();
     if (!jsonText) {
-        throw new Error("Received an empty response from the API.");
+        return [];
     }
     
     let parsedJson = JSON.parse(jsonText);
     
-    // Ensure parsedJson is always an array for uniform processing
+    // The model should return an array, but as a fallback, we wrap it if it's not.
     if (!Array.isArray(parsedJson)) {
         parsedJson = [parsedJson];
     }
@@ -513,6 +514,79 @@ Analyze the user's request in the context of our conversation. Then, using ONLY 
     } catch (error) {
         console.error("Error calling Gemini API for chat:", error);
         throw new Error(`Failed to get a response from the AI guide in ${language}. The divine connection may be weak. Please try again.`);
+    }
+};
+
+
+const combinedMantraSchema = {
+    type: Type.OBJECT,
+    properties: {
+        newMantra: { type: Type.STRING, description: "The newly created, combined Bija Mantra string." },
+        mantraName: { type: Type.STRING, description: "A suitable, descriptive name for the new mantra." },
+        corePurpose: { type: Type.STRING, description: "A concise summary of the primary purpose of this combined mantra." },
+        synergisticBenefits: { type: Type.STRING, description: "An explanation of how the individual bija mantras work together to create a unique, amplified effect." },
+        chantingGuidance: { type: Type.STRING, description: "Brief guidance on how or when to chant this mantra for best results." }
+    },
+    required: ['newMantra', 'mantraName', 'corePurpose', 'synergisticBenefits', 'chantingGuidance']
+};
+
+export const createCombinedMantra = async (bijaMantras: string[], slokas: Sloka[], language: string): Promise<CombinedMantraResponse> => {
+    const uniqueMantras = Array.from(
+        new Set(
+          bijaMantras
+            .flatMap(m => m.split(','))
+            .map(s => s.trim().replace(/[-.,]/g, ''))
+            .filter(s => s)
+        )
+    );
+    
+    const contextSlokas = JSON.stringify(slokas.map(({ slokaNumber, title, beneficialResults, literalResults }) => ({
+        slokaNumber, title, beneficialResults, literalResults
+    })), null, 2);
+
+    const prompt = `You are a "Mantra Maharishi," a supreme Vedic scholar and Tantric master with profound knowledge of Shabda Brahman (the ultimate reality in the form of sound). Your task is to synthesize a new, potent mantra from a given set of Bija (seed) Mantras, derived from specific Soundarya Lahari slokas.
+
+CONTEXT:
+The Bija Mantras are sourced from the following Soundarya Lahari slokas:
+${contextSlokas}
+
+INPUT BIJA MANTRAS:
+[${uniqueMantras.join(', ')}]
+
+TASK:
+Synthesize these individual Bija Mantras into a single, cohesive, and powerful new mantra. Then, provide a detailed explanation. The entire response must be in ${language}.
+
+CRITICAL INSTRUCTIONS:
+1.  **Create the New Mantra:** Do not just list the mantras. Weave them into a new, chantable sequence. Consider the vibrational flow and traditional sequencing rules (e.g., placing certain mantras at the beginning or end).
+2.  **Provide a Name:** Give this new combination a fitting Sanskrit-based name that reflects its purpose.
+3.  **Explain the Synergy:** Describe how the energies of the individual mantras combine. What unique, amplified effect is created that is greater than the sum of its parts? Reference the original purposes from the sloka context.
+4.  **Define Purpose:** Clearly state the core purpose of this new mantra.
+5.  **Give Guidance:** Provide brief, practical advice on how and when to chant this mantra for maximum benefit.
+6.  **JSON Output:** Your entire response MUST be a single JSON object matching the provided schema. Do not add any text before or after it.
+
+The final output must be in ${language}.
+`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: combinedMantraSchema,
+            },
+        });
+
+        const jsonText = response.text.trim();
+        if (!jsonText) {
+            throw new Error("Received an empty response from the Mantra Maharishi.");
+        }
+        
+        return JSON.parse(jsonText) as CombinedMantraResponse;
+
+    } catch (error) {
+        console.error("Error calling Gemini API for mantra creation:", error);
+        throw new Error(`Failed to create a combined mantra in ${language}. The divine connection might be weak right now. Please try again.`);
     }
 };
 
