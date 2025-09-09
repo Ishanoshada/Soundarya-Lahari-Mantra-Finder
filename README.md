@@ -1,8 +1,9 @@
 # Divine Mantras & Remedies: An AI Spiritual Guide
 
 
+
 <p align="center">
-  <strong>A comprehensive, interactive guide designed to unlock the profound wisdom within revered ancient Hindu texts.</strong>
+  <strong>A comprehensive, interactive guide designed to unlock the profound wisdom within revered ancient Hindu and Buddhist texts.</strong>
 </p>
 
 <p align="center">
@@ -39,7 +40,7 @@ Our vision is to make the deep, often complex, wisdom of these ancient tradition
 
 ## Core Spiritual Concepts
 
-The application draws from three distinct and powerful sources of Sanatana Dharma:
+The application draws from five distinct and powerful sources of spiritual wisdom:
 
 ### 1. Soundarya Lahari ("Waves of Beauty")
 A revered text of 100 verses (slokas) attributed to the great saint **Adi Shankaracharya**. It is a cornerstone of the **Shri Vidya** tradition, celebrating the beauty and power of the Divine Mother, Goddess Shakti. The text is divided into two parts:
@@ -51,11 +52,20 @@ Each verse is a potent mantra, believed to grant specific spiritual and material
 ### 2. Infallible Vedic Remedies
 A curated collection of powerful mantras and practices sourced from the authoritative book by **Swami Shantananda Puri**. This section offers time-tested remedies for a wide range of life's challenges, from health issues and mental well-being to finding a suitable partner and overcoming financial debts.
 
-### 3. Secrets of Yantra, Mantra and Tantra
+### 3. Mantra by Govinda Das Aghori
+A comprehensive collection of mantras sourced from the book "Mantra," with translations by Govinda Das Aghori. This compendium covers a wide array of categories, including foundational Bija Mantras, detailed hymns to deities like Ganesh and Gayatri Devi, and mantras for specific times of day and purposes, offering a broad spectrum of practices for various spiritual intentions.
+
+### 4. Secrets of Yantra, Mantra and Tantra
 A compendium of selected practices from this classic text, offering a glimpse into the mystical sciences of:
 - **Yantra:** Sacred geometric diagrams that serve as visual tools for concentration and as dwelling places for divine energy.
 - **Mantra:** Sacred sounds or verses that carry specific vibrational energy to manifest intentions.
 - **Tantra:** A systematic spiritual path that uses rituals, meditation, and the physical body to achieve spiritual realization.
+
+### 5. Buddhist Chanting
+A collection of essential chants from the Pāli Canon, as found in the "Buddhist Chanting Book in Pāli and English." This section provides a direct connection to the teachings of the Buddha.
+- **Vandana:** Chants for paying homage to the Buddha, Dhamma (Teachings), and Sangha (Community).
+- **Paritta:** Protective chants, such as the *Mangala Sutta* (Discourse on Blessings), recited for safety, well-being, and to ward off negative influences.
+- **Metta:** Practices focused on cultivating loving-kindness, most notably the *Karaniya Metta Sutta*, which radiates boundless goodwill to all beings.
 
 ---
 
@@ -67,25 +77,25 @@ A compendium of selected practices from this classic text, offering a glimpse in
 
 <p align="center">
 
-  ![6](/imgs/6.png)
+  ![4](/imgs/4.png)
   
 </p>
 
 ## Feature Walkthrough
 
-This application is a multi-faceted spiritual toolkit. You can seamlessly switch between five distinct modes:
+This application is a multi-faceted spiritual toolkit. You can seamlessly switch between multiple distinct modes:
 
 ### 1. Find Mantra for Problem
 - **Natural Language Search:** Simply describe your problem, intention, or desire in the search bar (e.g., "I need help with my career," "mantra for protection from enemies," or "for a happy marriage").
-- **Synergistic Solutions:** The AI can suggest a single, targeted solution or a powerful combination of 2-3 practices from multiple sources, presented in an easy-to-navigate accordion view.
+- **Synergistic Solutions:** The AI can suggest a single, targeted solution or a powerful combination of practices from multiple sources, presented in an easy-to-navigate accordion view.
 - **Intention Selection:** You can also select one or more predefined intentions from a comprehensive list to guide your search.
 
-### 2. Lookup Mantra or Sloka
+### 2. Lookup Sloka
 - **Direct Access:** For those familiar with the text, you can directly search for a specific Soundarya Lahari sloka by its number (1-100) or its associated Bija Mantra (e.g., "Kleem").
 - **Multi-Sloka View:** If a Bija Mantra is associated with multiple slokas, the application will display all of them, allowing for a comparative study.
 
-### 3. Vedic Remedies & Mantra Compendium
-- **Structured Browsing:** Explore a comprehensive list of remedies and tantric practices in a clean, two-pane layout.
+### 3. Vedic Remedies, Mantra Compendium, Tantric Practices & Buddhist Chants
+- **Structured Browsing:** Explore comprehensive lists of practices in a clean, two-pane layout.
 - **Instant Search & Filter:** The list of practices on the left can be instantly filtered by searching for keywords, while the detailed card for the selected practice is displayed on the right.
 
 ### 4. AI Chat Guide
@@ -112,13 +122,13 @@ This application is a multi-faceted spiritual toolkit. You can seamlessly switch
 
 <p align="center">
 
-  ![4](/imgs/4.png)
+  ![5](/imgs/5.png)
   
 </p>
 
 <p align="center">
 
-  ![5](/imgs/5.png)
+  ![6](/imgs/6.png)
   
 </p>
 
@@ -248,7 +258,9 @@ Contributions are welcome! If you have suggestions for improvements, new feature
 This project would not be possible without the timeless wisdom passed down through generations. We extend our deepest gratitude to:
 - **Adi Shankaracharya** for the divine gift of Soundarya Lahari.
 - **Swami Shantananda Puri** for compiling the invaluable "Infallible Vedic Remedies".
+- **Govinda Das Aghori** for the translations in the "Mantra" book.
 - The original authors and compilers of "Secrets of Yantra, Mantra and Tantra".
+- The compilers of the "Buddhist Chanting Book in Pāli and English".
 
 ---
 

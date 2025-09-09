@@ -48,19 +48,22 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
         }
     };
 
-    const getItemDisplay = (item: BookmarkedItem) => {
+    const getItemDisplay = (item: BookmarkedItem): string => {
         switch (item.type) {
             case 'sloka':
                 return `Sloka #${item.data.slokaNumber}: ${item.data.title}`;
             case 'remedy':
                 return `Remedy #${item.data.id}: ${item.data.title}`;
             case 'tantra':
-                return `Mantra #${item.data.id}: ${item.data.title}`;
+                return `Practice #${item.data.id}: ${item.data.title}`;
             case 'mantraBook':
                 return `Compendium #${item.data.id}: ${item.data.title}`;
             case 'buddhistChant':
                 return `Chant #${item.data.id}: ${item.data.title}`;
             default:
+                // This exhaustive check ensures we handle all bookmark types.
+                const invalidItem: never = item;
+                console.warn("Unknown bookmarked item type:", invalidItem);
                 return 'Bookmarked Item';
         }
     };

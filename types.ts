@@ -1,4 +1,5 @@
 
+
 export interface Sloka {
   slokaNumber: number;
   title: string;
@@ -47,21 +48,44 @@ export interface TantraBookMantra {
   category: string;
   title: string;
   purpose: string[];
-  // FIX: Add transliteratedMantra to the type definition.
   transliteratedMantra: string[];
   instructions: string;
   notes?: string[];
   source: "Secrets of Yantra, Mantra and Tantra";
 }
 
+export interface MantraBookItem {
+  id: number;
+  category: string;
+  title: string;
+  sanskrit?: string[];
+  transliteration: string[];
+  meaning: string[];
+  notes?: string[];
+  source: "Mantra by Govinda Das Aghori";
+}
+
+export interface BuddhistChant {
+  id: number;
+  category: string;
+  title: string;
+  pali: string[];
+  english: string[];
+  source: "Buddhist Chanting Book";
+  notes?: string[];
+}
+
+
 export interface MantraIdentifier {
-    source: 'Soundarya Lahari' | 'Vedic Remedies';
+    source: 'Soundarya Lahari' | 'Vedic Remedies' | 'Mantra Book';
     identifier: number;
 }
 
 export type SearchResult = 
   | { type: 'sloka'; data: Sloka }
-  | { type: 'remedy'; data: VedicRemedy };
+  | { type: 'remedy'; data: VedicRemedy }
+  | { type: 'mantraBook'; data: MantraBookItem }
+  | { type: 'buddhistChant'; data: BuddhistChant };
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -71,7 +95,9 @@ export interface ChatMessage {
 export type BookmarkedItem = 
   | { type: 'sloka'; data: Sloka; sections?: string[] }
   | { type: 'remedy'; data: VedicRemedy; sections?: string[] }
-  | { type: 'tantra'; data: TantraBookMantra; sections?: string[] };
+  | { type: 'tantra'; data: TantraBookMantra; sections?: string[] }
+  | { type: 'mantraBook'; data: MantraBookItem; sections?: string[] }
+  | { type: 'buddhistChant'; data: BuddhistChant; sections?: string[] };
 
 export interface CombinedMantraResponse {
     newMantra: string;

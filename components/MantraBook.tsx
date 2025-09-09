@@ -1,28 +1,26 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { TANTRA_BOOK_DATA } from '../constants/tantraBookData';
-import TantraMantraCard from './TantraMantraCard';
-// FIX: Import BookmarkedItem to use in props.
-import type { TantraBookMantra, BookmarkedItem } from '../types';
-import { translateTantraBookMantras } from '../services/geminiService';
+import { MANTRA_BOOK_DATA } from '../constants/mantraBookData';
+import MantraBookCard from './MantraBookCard';
+import type { MantraBookItem, BookmarkedItem } from '../types';
+import { translateMantraBookItems } from '../services/geminiService';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 
-// FIX: Update props to align with App.tsx and handle bookmarking correctly.
-interface TantraBookProps {
+interface MantraBookProps {
     bookmarkedItems: BookmarkedItem[];
     highlightedSections: Record<string, string[]>;
-    onToggleSelect: (mantra: TantraBookMantra) => void;
-    onToggleSectionBookmark: (itemData: TantraBookMantra, itemType: 'tantra') => (sectionTitle: string) => void;
+    onToggleSelect: (mantra: MantraBookItem) => void;
+    onToggleSectionBookmark: (itemData: MantraBookItem, itemType: 'mantraBook') => (sectionTitle: string) => void;
     language: string;
     initialSelectedId: number | null;
 }
 
-const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId }) => {
+const MantraBook: React.FC<MantraBookProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedMantraId, setSelectedMantraId] = useState<number | null>(initialSelectedId || TANTRA_BOOK_DATA[0]?.id || null);
+    const [selectedMantraId, setSelectedMantraId] = useState<number | null>(initialSelectedId || MANTRA_BOOK_DATA[0]?.id || null);
     
-    const [mantraForDisplay, setMantraForDisplay] = useState<TantraBookMantra | null>(null);
-    const [translationCache, setTranslationCache] = useState<Record<string, TantraBookMantra>>({});
+    const [mantraForDisplay, setMantraForDisplay] = useState<MantraBookItem | null>(null);
+    const [translationCache, setTranslationCache] = useState<Record<string, MantraBookItem>>({});
     const [isCardLoading, setIsCardLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -33,49 +31,59 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
         }
     }, [initialSelectedId]);
 
-    // List is always based on English data for fast filtering and consistent display.
-    const filteredMantras = useMemo(() => {
-        if (!searchTerm.trim()) {
-            return TANTRA_BOOK_DATA;
-        }
+    // Group and filter mantras
+    const groupedAndFilteredMantras = useMemo(() => {
         const lowercasedTerm = searchTerm.toLowerCase();
-        return TANTRA_BOOK_DATA.filter(mantra => 
+        
+        const filtered = MANTRA_BOOK_DATA.filter(mantra => 
             mantra.title.toLowerCase().includes(lowercasedTerm) ||
-            mantra.purpose.join(' ').toLowerCase().includes(lowercasedTerm) ||
+            mantra.meaning.join(' ').toLowerCase().includes(lowercasedTerm) ||
             mantra.category.toLowerCase().includes(lowercasedTerm)
         );
+
+        return filtered.reduce((acc, mantra) => {
+            (acc[mantra.category] = acc[mantra.category] || []).push(mantra);
+            return acc;
+        }, {} as Record<string, MantraBookItem[]>);
+
     }, [searchTerm]);
+
+    const flatMantraList = useMemo(() => Object.values(groupedAndFilteredMantras).flat(), [groupedAndFilteredMantras]);
+    const hasResults = useMemo(() => flatMantraList.length > 0, [flatMantraList]);
     
     const { currentIndex, handlePrevious, handleNext } = useMemo(() => {
-        if (!selectedMantraId || filteredMantras.length === 0) {
+        if (!selectedMantraId || !hasResults) {
             return { currentIndex: -1, handlePrevious: () => {}, handleNext: () => {} };
         }
-        const idx = filteredMantras.findIndex(mantra => mantra.id === selectedMantraId);
+        const idx = flatMantraList.findIndex(mantra => mantra.id === selectedMantraId);
         
         const prev = () => {
             if (idx > 0) {
-                setSelectedMantraId(filteredMantras[idx - 1].id);
+                setSelectedMantraId(flatMantraList[idx - 1].id);
             }
         };
 
         const next = () => {
-            if (idx < filteredMantras.length - 1) {
-                setSelectedMantraId(filteredMantras[idx + 1].id);
+            if (idx < flatMantraList.length - 1) {
+                setSelectedMantraId(flatMantraList[idx + 1].id);
             }
         };
         
         return { currentIndex: idx, handlePrevious: prev, handleNext: next };
-    }, [selectedMantraId, filteredMantras]);
+    }, [selectedMantraId, flatMantraList, hasResults]);
 
 
     // Auto-select the first item in the list if the current selection is filtered out or not set.
     useEffect(() => {
-        if (filteredMantras.length > 0 && !filteredMantras.some(m => m.id === selectedMantraId)) {
-            setSelectedMantraId(filteredMantras[0].id);
-        } else if (filteredMantras.length === 0) {
+        if (hasResults) {
+            const allVisibleIds = flatMantraList.map(m => m.id);
+            if (!allVisibleIds.includes(selectedMantraId as number)) {
+                setSelectedMantraId(allVisibleIds[0]);
+            }
+        } else {
             setSelectedMantraId(null);
         }
-    }, [filteredMantras, selectedMantraId]);
+    }, [flatMantraList, hasResults, selectedMantraId]);
     
     // Core logic: Fetch translation for the selected mantra on-demand.
     useEffect(() => {
@@ -84,7 +92,7 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
             return;
         }
 
-        const originalMantra = TANTRA_BOOK_DATA.find(m => m.id === selectedMantraId);
+        const originalMantra = MANTRA_BOOK_DATA.find(m => m.id === selectedMantraId);
         if (!originalMantra) return;
 
         if (language === 'English') {
@@ -103,7 +111,7 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
             setIsCardLoading(true);
             setError(null);
             try {
-                const translated = await translateTantraBookMantras([originalMantra], language);
+                const translated = await translateMantraBookItems([originalMantra], language);
                 if (translated && translated.length > 0) {
                     setTranslationCache(prev => ({ ...prev, [cacheKey]: translated[0] }));
                     setMantraForDisplay(translated[0]);
@@ -125,9 +133,9 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
     return (
         <div className="w-full max-w-6xl mx-auto my-6 animate-landing animate-fade-in" style={{ animationDelay: '1.3s' }}>
             <div className="text-center mb-4">
-                <h3 className="text-3xl font-bold text-amber-900">Tantric Practices</h3>
+                <h3 className="text-3xl font-bold text-amber-900">Mantra Compendium</h3>
                 <p className="text-amber-700 mt-1">
-                    Selected practices from 'Secrets of Yantra, Mantra and Tantra'
+                    A collection from "Mantra" by Govinda Das Aghori
                 </p>
             </div>
             <div className="mb-6 max-w-3xl mx-auto bg-amber-100/60 border-l-4 border-amber-500 text-amber-800 p-3 rounded-r-lg flex items-start shadow-sm">
@@ -144,24 +152,29 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search practices by purpose or title..."
+                    placeholder="Search mantras by purpose or title..."
                     className="w-full px-5 py-3 text-lg text-amber-900 placeholder-amber-600/70 bg-white/80 backdrop-blur-sm rounded-full shadow-md border border-amber-300/60 focus:outline-none focus:ring-2 focus:ring-amber-500 mt-4"
-                    aria-label="Search Tantric Practices"
+                    aria-label="Search Mantra Book"
                 />
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
                 <div className="md:col-span-1 bg-white/60 p-4 rounded-xl border border-amber-300/50 shadow-lg">
-                    <h4 className="text-lg font-bold text-amber-900 mb-3 text-center">Practice List (English)</h4>
+                    <h4 className="text-lg font-bold text-amber-900 mb-3 text-center">Mantra List (English)</h4>
                     <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2">
-                        {filteredMantras.map(mantra => (
-                            <button
-                                key={mantra.id}
-                                onClick={() => setSelectedMantraId(mantra.id)}
-                                className={`w-full text-left p-3 rounded-lg transition-colors text-amber-800 text-sm ${selectedMantraId === mantra.id ? 'bg-amber-200 font-bold' : 'hover:bg-amber-100'}`}
-                            >
-                                #{mantra.id}: {mantra.title}
-                            </button>
+                        {Object.entries(groupedAndFilteredMantras).map(([category, mantras]) => (
+                            <div key={category}>
+                                <h5 className="text-md font-bold text-amber-800/80 sticky top-0 bg-white/80 backdrop-blur-sm py-1">{category}</h5>
+                                {mantras.map(mantra => (
+                                    <button
+                                        key={mantra.id}
+                                        onClick={() => setSelectedMantraId(mantra.id)}
+                                        className={`w-full text-left p-3 rounded-lg transition-colors text-amber-800 text-sm ${selectedMantraId === mantra.id ? 'bg-amber-200 font-bold' : 'hover:bg-amber-100'}`}
+                                    >
+                                        #{mantra.id}: {mantra.title}
+                                    </button>
+                                ))}
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -171,38 +184,38 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
                     {!isCardLoading && !error && mantraForDisplay ? (
                         <>
                             {(() => {
-                                const bookmarkedItem = bookmarkedItems.find(i => i.type === 'tantra' && i.data.id === mantraForDisplay.id);
+                                const bookmarkedItem = bookmarkedItems.find(i => i.type === 'mantraBook' && i.data.id === mantraForDisplay.id);
                                 const isSelected = !!bookmarkedItem;
                                 const bookmarkedSections = bookmarkedItem?.sections || [];
-                                const highlightKey = `tantra_${mantraForDisplay.id}`;
+                                const highlightKey = `mantraBook_${mantraForDisplay.id}`;
                                 return (
-                                    <TantraMantraCard 
+                                    <MantraBookCard 
                                         mantra={mantraForDisplay} 
                                         onToggleSelect={onToggleSelect}
                                         isSelected={isSelected}
                                         bookmarkedSections={bookmarkedSections}
                                         highlightedSections={highlightedSections[highlightKey] || []}
-                                        onToggleSectionBookmark={onToggleSectionBookmark(mantraForDisplay, 'tantra')}
+                                        onToggleSectionBookmark={onToggleSectionBookmark(mantraForDisplay, 'mantraBook')}
                                     />
                                 );
                             })()}
-                             <div className="flex justify-between items-center mt-4 px-2">
+                            <div className="flex justify-between items-center mt-4 px-2">
                                 <button
                                     onClick={handlePrevious}
                                     disabled={currentIndex <= 0}
                                     className="px-6 py-2 font-semibold rounded-full text-amber-800 bg-white/80 hover:bg-amber-100 transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                                    aria-label="Previous Practice"
+                                    aria-label="Previous Mantra"
                                 >
                                     &larr; Previous
                                 </button>
                                 {currentIndex !== -1 && (
-                                     <span className="text-sm text-amber-700 font-medium">{currentIndex + 1} / {filteredMantras.length}</span>
+                                     <span className="text-sm text-amber-700 font-medium">{currentIndex + 1} / {flatMantraList.length}</span>
                                 )}
                                 <button
                                     onClick={handleNext}
-                                    disabled={currentIndex === -1 || currentIndex >= filteredMantras.length - 1}
+                                    disabled={currentIndex === -1 || currentIndex >= flatMantraList.length - 1}
                                     className="px-6 py-2 font-semibold rounded-full text-amber-800 bg-white/80 hover:bg-amber-100 transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                                    aria-label="Next Practice"
+                                    aria-label="Next Mantra"
                                 >
                                     Next &rarr;
                                 </button>
@@ -212,7 +225,7 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
                         !isCardLoading && !error && (
                             <div className="flex items-center justify-center h-full bg-white/60 p-4 rounded-xl border border-amber-300/50 shadow-lg min-h-[400px]">
                                 <p className="text-amber-700 text-center">
-                                   {searchTerm ? "No practices found matching your search." : "Select a practice from the list to view its details."}
+                                   {searchTerm ? "No mantras found matching your search." : "Select a mantra from the list to view its details."}
                                 </p>
                             </div>
                         )
@@ -223,4 +236,4 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
     );
 };
 
-export default TantraBook;
+export default MantraBook;

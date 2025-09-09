@@ -2,15 +2,17 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { SLOKA_DATA } from "../constants/slokaData";
 import { VEDIC_REMEDIES_DATA } from "../constants/remediesData";
 import { TANTRA_BOOK_DATA } from "../constants/tantraBookData";
-import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, ChatMessage, MantraIdentifier, CombinedMantraResponse } from "../types";
+import { MANTRA_BOOK_DATA } from "../constants/mantraBookData";
+import { BUDDHIST_CHANTS_DATA } from "../constants/buddhistChantsData";
+import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, MantraBookItem, ChatMessage, MantraIdentifier, CombinedMantraResponse, BuddhistChant } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 const identifierSchema = {
   type: Type.OBJECT,
   properties: {
-    source: { type: Type.STRING, enum: ['Soundarya Lahari', 'Vedic Remedies'], description: "The source dataset of the item." },
-    identifier: { type: Type.INTEGER, description: "Use the 'slokaNumber' for Soundarya Lahari, or the 'id' for Vedic Remedies." },
+    source: { type: Type.STRING, enum: ['Soundarya Lahari', 'Vedic Remedies', 'Mantra Book', 'Buddhist Chants'], description: "The source dataset of the item." },
+    identifier: { type: Type.INTEGER, description: "Use 'slokaNumber' for Soundarya Lahari, or 'id' for other sources." },
   },
   required: ['source', 'identifier'],
 };
@@ -24,30 +26,39 @@ export const findMantraForProblem = async (problem: string, combine: boolean): P
   // To make the prompt more efficient, we only send the fields necessary for matching.
   const slokaDataString = JSON.stringify(SLOKA_DATA.map(({slokaNumber, title, beneficialResults, literalResults}) => ({slokaNumber, title, beneficialResults, literalResults})), null, 2);
   const remediesDataString = JSON.stringify(VEDIC_REMEDIES_DATA.map(({id, title, purpose}) => ({id, title, purpose})), null, 2);
+  const mantraBookDataString = JSON.stringify(MANTRA_BOOK_DATA.map(({id, title, category, meaning}) => ({id, title, purpose: `${category}: ${meaning.join(' ')}`})), null, 2);
+  const buddhistChantsDataString = JSON.stringify(BUDDHIST_CHANTS_DATA.map(({id, title, english}) => ({id, title, purpose: english.join(' ')})), null, 2);
 
-  const prompt = `You are an expert scholar of Vedic traditions, specializing in both the Soundarya Lahari and general Vedic remedies. Your task is to analyze the user's problem and recommend the most appropriate spiritual solution(s) from TWO provided JSON datasets.
+
+  const prompt = `You are a wise and compassionate spiritual scholar with deep knowledge of both Hindu Vedic traditions (including Soundarya Lahari, remedies, and mantras) and Buddhist philosophy (specifically Pāli chants). Your task is to analyze the user's problem and recommend the most appropriate spiritual solution(s) from FOUR provided JSON datasets.
 
 User's Problem: "${problem}"
 
-Analyze the 'beneficialResults', 'literalResults', and 'title' of the slokas, and the 'purpose' and 'title' of the remedies to find the best match.
+Analyze the 'beneficialResults', 'literalResults', and 'title' of the slokas, and the 'purpose' and 'title' of other items to find the best match. Buddhist chants often focus on mental states like peace, loving-kindness, and protection; match them to problems related to fear, anxiety, lack of compassion, or seeking blessings and safety.
 
 ${ combine 
-    ? "The user wants a powerful, synergistic combination. Please identify the 2 or 3 solutions that work best *together* to solve this problem. You can mix and match from both sources."
-    : "Identify all highly relevant slokas AND remedies that individually address the user's problem. Return a result from each dataset if a strong match is found in both. Limit the total results to a maximum of 3."
+    ? "The user wants a powerful, synergistic combination. Please identify the 2 or 3 solutions that work best *together* to solve this problem. You can mix and match from all sources."
+    : "Identify all highly relevant items from all datasets that individually address the user's problem. Return a result from each dataset if a strong match is found. Limit the total results to a maximum of 4."
 }
 
 CRITICAL INSTRUCTIONS:
 1.  Your entire response MUST be a JSON array of objects matching the provided schema. If you find no matches, return an empty array [].
 2.  For each recommended item, you must return an object with two fields:
-    - "source": Must be either the exact string 'Soundarya Lahari' or 'Vedic Remedies'.
-    - "identifier": Must be the integer value from the 'slokaNumber' field (for Soundarya Lahari) or the 'id' field (for Vedic Remedies).
+    - "source": Must be one of the exact strings: 'Soundarya Lahari', 'Vedic Remedies', 'Mantra Book', or 'Buddhist Chants'.
+    - "identifier": Must be the integer value from the 'slokaNumber' field (for Soundarya Lahari) or the 'id' field (for other sources).
 3.  Do NOT return the full text or any other fields. Only return the source and the identifier.
 
-DATASET 1: Soundarya Lahari Slokas (only relevant fields shown)
+DATASET 1: Soundarya Lahari Slokas
 ${slokaDataString}
 
-DATASET 2: Vedic Remedies (only relevant fields shown)
+DATASET 2: Vedic Remedies
 ${remediesDataString}
+
+DATASET 3: Mantra Book
+${mantraBookDataString}
+
+DATASET 4: Buddhist Chants
+${buddhistChantsDataString}
 `;
 
   try {
@@ -406,69 +417,268 @@ export const translateTantraBookMantras = async (mantras: TantraBookMantra[], la
     }
 };
 
+export const translateMantraBookItems = async (items: MantraBookItem[], language: string): Promise<MantraBookItem[]> => {
+    if (language === 'English' || items.length === 0) {
+        return items;
+    }
+
+    const itemsToTranslate = items.map(m => ({
+        id: m.id,
+        category: m.category,
+        title: m.title,
+        meaning: m.meaning,
+        notes: m.notes
+    }));
+
+    const prompt = `You are an expert multilingual translator specializing in spiritual texts.
+    Your task is to translate the text content of the provided JSON object(s) into ${language}.
+    
+    You must translate the values for the following keys: 'category', 'title', and the strings within the 'meaning' and 'notes' arrays.
+    
+    The 'id' key must be preserved as is.
+    
+    Return ONLY the final translated JSON array. Do not include any other text or explanation in your response.
+
+    JSON to Translate:
+    ${JSON.stringify(itemsToTranslate, null, 2)}
+    `;
+
+    const translationSchema = {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.INTEGER },
+                category: { type: Type.STRING },
+                title: { type: Type.STRING },
+                meaning: { type: Type.ARRAY, items: { type: Type.STRING } },
+                notes: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ['id', 'category', 'title', 'meaning']
+        }
+    };
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: translationSchema,
+            },
+        });
+        const jsonText = response.text.trim();
+        const translatedData = JSON.parse(jsonText) as Array<Partial<MantraBookItem>>;
+
+        return items.map(originalItem => {
+            const translatedPart = translatedData.find(t => t.id === originalItem.id);
+            return translatedPart ? { ...originalItem, ...translatedPart } : originalItem;
+        });
+
+    } catch (error) {
+        console.error("Error calling Gemini API for mantra book translation:", error);
+        throw new Error(`Failed to translate the mantra book details into ${language}.`);
+    }
+};
+
+export const translateBuddhistChants = async (chants: BuddhistChant[], language: string): Promise<BuddhistChant[]> => {
+    if (language === 'English' || chants.length === 0) {
+        return chants;
+    }
+
+    const chantsToTranslate = chants.map(c => ({
+        id: c.id,
+        category: c.category,
+        title: c.title,
+        english: c.english,
+        notes: c.notes
+    }));
+
+    const prompt = `You are an expert multilingual translator specializing in spiritual and Buddhist texts.
+    Your task is to translate the text content of the provided JSON object(s) into ${language}.
+    
+    You must translate the values for the following keys: 'category', 'title', and the strings within the 'english' and 'notes' arrays. The 'english' field should be translated to the target language.
+    
+    The 'id' key must be preserved as is.
+    
+    Return ONLY the final translated JSON array. Do not include any other text or explanation in your response.
+
+    JSON to Translate:
+    ${JSON.stringify(chantsToTranslate, null, 2)}
+    `;
+
+    const translationSchema = {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.INTEGER },
+                category: { type: Type.STRING },
+                title: { type: Type.STRING },
+                english: { type: Type.ARRAY, items: { type: Type.STRING } },
+                notes: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ['id', 'category', 'title', 'english']
+        }
+    };
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: translationSchema,
+            },
+        });
+        const jsonText = response.text.trim();
+        const translatedData = JSON.parse(jsonText) as Array<Partial<BuddhistChant>>;
+
+        return chants.map(originalChant => {
+            const translatedPart = translatedData.find(t => t.id === originalChant.id);
+            // We only replace the translated fields, keeping the 'pali' field from the original.
+            const updatedChant = { ...originalChant };
+            if (translatedPart) {
+                if (translatedPart.category) updatedChant.category = translatedPart.category;
+                if (translatedPart.title) updatedChant.title = translatedPart.title;
+                if (translatedPart.english) updatedChant.english = translatedPart.english;
+                if (translatedPart.notes) updatedChant.notes = translatedPart.notes;
+            }
+            return updatedChant;
+        });
+
+    } catch (error) {
+        console.error("Error calling Gemini API for Buddhist chant translation:", error);
+        throw new Error(`Failed to translate the Buddhist chant details into ${language}.`);
+    }
+};
+
 export const translateSearchResults = async (results: SearchResult[], language: string): Promise<SearchResult[]> => {
     if (language === 'English' || results.length === 0) {
         return results;
     }
 
-    const slokasToTranslate = results
-        .filter((r): r is { type: 'sloka'; data: Sloka } => r.type === 'sloka')
-        .map(r => r.data);
-    
-    const remediesToTranslate = results
-        .filter((r): r is { type: 'remedy'; data: VedicRemedy } => r.type === 'remedy')
-        .map(r => r.data);
+    const slokasToTranslate = results.filter((r): r is { type: 'sloka'; data: Sloka } => r.type === 'sloka').map(r => r.data);
+    const remediesToTranslate = results.filter((r): r is { type: 'remedy'; data: VedicRemedy } => r.type === 'remedy').map(r => r.data);
+    const mantraBookToTranslate = results.filter((r): r is { type: 'mantraBook'; data: MantraBookItem } => r.type === 'mantraBook').map(r => r.data);
+    const buddhistChantsToTranslate = results.filter((r): r is { type: 'buddhistChant'; data: BuddhistChant } => r.type === 'buddhistChant').map(r => r.data);
 
-    const [translatedSlokas, translatedRemedies] = await Promise.all([
+    const [translatedSlokas, translatedRemedies, translatedMantraBook, translatedBuddhistChants] = await Promise.all([
         slokasToTranslate.length > 0 ? translateSlokas(slokasToTranslate, language) : Promise.resolve([]),
-        remediesToTranslate.length > 0 ? translateVedicRemedies(remediesToTranslate, language) : Promise.resolve([])
+        remediesToTranslate.length > 0 ? translateVedicRemedies(remediesToTranslate, language) : Promise.resolve([]),
+        mantraBookToTranslate.length > 0 ? translateMantraBookItems(mantraBookToTranslate, language) : Promise.resolve([]),
+        buddhistChantsToTranslate.length > 0 ? translateBuddhistChants(buddhistChantsToTranslate, language) : Promise.resolve([]),
     ]);
 
     return results.map(res => {
         if (res.type === 'sloka') {
             const translated = translatedSlokas.find(t => t.slokaNumber === res.data.slokaNumber);
             return { type: 'sloka' as const, data: translated || res.data };
-        } else { // remedy
+        } else if (res.type === 'remedy') {
             const translated = translatedRemedies.find(t => t.id === res.data.id);
             return { type: 'remedy' as const, data: translated || res.data };
+        } else if (res.type === 'mantraBook') {
+            const translated = translatedMantraBook.find(t => t.id === res.data.id);
+            return { type: 'mantraBook' as const, data: translated || res.data };
+        } else { // buddhistChant
+            const translated = translatedBuddhistChants.find(t => t.id === res.data.id);
+            return { type: 'buddhistChant' as const, data: translated || res.data };
         }
     });
 };
 
 export const getAiChatResponse = async (message: string, history: ChatMessage[], language: string): Promise<string> => {
-    // 1. Filter local data based on the user's message
-    const lowercasedMessage = message.toLowerCase();
-    const keywords = lowercasedMessage.split(/\s+/).filter(word => word.length > 3);
+    const lowercasedMessage = message.toLowerCase().replace(/[?.,]/g, '');
 
-    const filterByKeywords = (text: string) => keywords.some(kw => text.toLowerCase().includes(kw));
+    // Keywords to detect general questions
+    const generalQueryKeywords = [
+        'help', 'what can you do', 'about this app', 'guide me', 'how to use',
+        'what is this', 'types of mantras', 'mantra types', 'what kind of mantras',
+        'who are you', 'explain yourself', 'show me'
+    ];
 
-    const relevantSlokas = SLOKA_DATA.filter(s => 
-        filterByKeywords(s.title) || 
-        filterByKeywords(s.beneficialResults) || 
-        filterByKeywords(s.literalResults)
-    ).slice(0, 3); // Limit to top 3 matches to keep context small
+    const isGeneralQuery = generalQueryKeywords.some(kw => lowercasedMessage.includes(kw));
 
-    const relevantRemedies = VEDIC_REMEDIES_DATA.filter(r => 
-        filterByKeywords(r.title) || 
-        filterByKeywords(r.purpose)
-    ).slice(0, 3);
+    let contextDataString: string;
+    let taskInstruction: string;
 
-    const relevantTantra = TANTRA_BOOK_DATA.filter(t => 
-        filterByKeywords(t.title) || 
-        t.purpose.some(p => filterByKeywords(p))
-    ).slice(0, 3);
+    if (isGeneralQuery) {
+        // Handle general queries by providing an overview of the application and examples
+        contextDataString = `
+This application is a comprehensive, interactive spiritual guide. When asked about the types of mantras or chants available, you should explain these categories and provide examples from the data below.
+
+**Application Sections:**
+1.  **Find Mantra for Problem:** AI search for user problems (Hindu traditions).
+2.  **Lookup Sloka:** Browser for the 100 verses of the Soundarya Lahari.
+3.  **Vedic Remedies:** A collection from "Infallible Vedic Remedies" by Swami Shantananda Puri.
+4.  **Mantra Compendium:** A broad collection from "Mantra" by Govinda Das Aghori.
+5.  **Tantric Practices:** Yantras and rituals from "Secrets of Yantra, Mantra and Tantra".
+6.  **Buddhist Chants:** A collection of chants in Pāli with English translations.
+
+**Your capabilities as Lahari GPT:**
+- You can find specific mantras for user problems (e.g., "mantra for courage").
+- You can explain what the different sections of the app are for and what types of practices they contain, using the examples below.
+- You can guide users on how to use the features.
+- Your knowledge is based *only* on the data within this application.
+
+**EXAMPLE DATA (Use this to answer "what type mantras have"):**
+
+*   **From Soundarya Lahari:** These are verses (slokas) combined with a Bija (seed) mantra for specific benefits.
+    *   **Sloka #1:** Title: "Waves of Happiness", Bija Mantra: "Kleem", Purpose: "All prosperity, granting of cherished purposes and solution to intricate problems."
+
+*   **From Vedic Remedies:** These are powerful mantras for various life challenges.
+    *   **Remedy #2:** Title: "Dhanvantari Mantra", Purpose: "For all Physical and Mental Diseases", Mantra: "Om Namo Bhagavate Dhanvantaraye...".
+
+*   **From Mantra Compendium:** A broad collection including foundational mantras.
+    *   **Item #117:** Title: "Gayatri Mantra", Purpose: "Develop brilliant intellect, health, success, peace...", Mantra: "Om Bhūrbhuvaḥ svaḥ...".
+
+*   **From Tantric Practices:** These often involve Yantras (sacred diagrams) with associated mantras.
+    *   **Practice #1:** Title: "Shri Yantra Practice", Purpose: "Attainment of power, authority, and financial success.", Mantra: "Om Shareeng, Hareeng, Kaleeng...".
+
+*   **From Buddhist Chants:** These are devotional and protective chants from the Pāli Canon.
+    *   **Chant #301:** Title: "Preliminary Reverence", Purpose: "To pay homage to the Buddha.", Pāli: "Namo tassa bhagavato...".
+    *   **Chant #308:** Title: "Chant of Loving-Kindness", Purpose: "To radiate kindness over the entire world.", Pāli: "Karanīyam-attha-kusalēna...".
+`;
+        taskInstruction = `The user has asked a general question about the application or the types of practices available. Based on the **Application Sections** and **EXAMPLE DATA** provided above, provide a helpful and guiding response. Explain your purpose and what the user can do with this spiritual tool. When asked about mantra/chant types, list the categories and give some specific examples of practices and their purposes from the provided data. Structure the response clearly.`;
+
+    } else {
+        // Handle specific queries by filtering relevant practices
+        const keywords = lowercasedMessage.split(/\s+/).filter(word => word.length > 2);
+        const filterByKeywords = (text: string) => keywords.some(kw => text.toLowerCase().includes(kw));
+
+        const relevantSlokas = SLOKA_DATA.filter(s => filterByKeywords(s.title) || filterByKeywords(s.beneficialResults) || filterByKeywords(s.literalResults)).slice(0, 1);
+        const relevantRemedies = VEDIC_REMEDIES_DATA.filter(r => filterByKeywords(r.title) || filterByKeywords(r.purpose)).slice(0, 1);
+        const relevantTantra = TANTRA_BOOK_DATA.filter(t => filterByKeywords(t.title) || t.purpose.some(p => filterByKeywords(p))).slice(0, 1);
+        const relevantMantraBook = MANTRA_BOOK_DATA.filter(m => filterByKeywords(m.title) || m.meaning.some(p => filterByKeywords(p))).slice(0, 1);
+        const relevantBuddhistChants = BUDDHIST_CHANTS_DATA.filter(c => filterByKeywords(c.title) || c.english.join(' ').toLowerCase().includes(lowercasedMessage)).slice(0, 1);
+        
+        const contextData = {
+            slokas: relevantSlokas,
+            remedies: relevantRemedies,
+            tantraPractices: relevantTantra,
+            mantraBook: relevantMantraBook,
+            buddhistChants: relevantBuddhistChants,
+        };
+        contextDataString = JSON.stringify(contextData, null, 2);
+
+        taskInstruction = `Analyze the user's request in the context of our conversation. Then, using ONLY the provided relevant practices from the JSON above, craft a helpful response.
+
+**Response Requirements:**
+1.  **Structure:** Use clear markdown categories (e.g., ### Soundarya Lahari Practice).
+2.  **Explanation:** Briefly explain WHY the recommendation is suitable by referencing its purpose from the provided JSON data.
+3.  **Include Mantra/Chant Text:** This is critical. For each recommendation, you MUST include all relevant texts.
+    *   For a 'sloka', include its \`bijaMantra\` and \`slokaText\`.
+    *   For 'remedies' or 'mantraBook', list each string from the \`transliteratedMantra\` or \`transliteration\` array.
+    *   For a 'buddhistChant', include the \`pali\` text.
+    *   Format the text clearly, using bolding or italics.
+4.  **Conciseness:** Be concise in your explanations, but ensure all required texts are always included.
+5.  **Relevance:** If none of the provided practices seem relevant, politely explain that you couldn't find a direct match and ask the user to rephrase their problem.
+6.  **Context:** Do not invent new practices or go beyond the provided JSON context.`;
+    }
     
-    const contextData = {
-        slokas: relevantSlokas,
-        remedies: relevantRemedies,
-        tantraPractices: relevantTantra
-    };
-    const contextDataString = JSON.stringify(contextData, null, 2);
-    
-    // 2. Construct the prompt
     const historyString = history.map(h => `${h.role}: ${h.text}`).join('\n');
 
-    const prompt = `You are "Lahari GPT", an insightful and compassionate spiritual guide with deep knowledge of Soundarya Lahari, Vedic Remedies, and Tantric practices. Your role is to provide clear, categorized, and actionable guidance based on the user's query and a pre-filtered set of relevant spiritual texts provided to you.
+    const prompt = `You are "Lahari GPT", an insightful and compassionate spiritual guide with deep knowledge of Soundarya Lahari, Vedic Remedies, Tantric practices, a general Mantra collection, and Buddhist Chanting. Your role is to provide clear, categorized, and actionable guidance based on the user's query and the context provided to you.
 
 **CRITICAL INSTRUCTION: You MUST respond exclusively and entirely in the user's requested language: ${language}. Do not use English unless the user's message is in English and they have not specified another language. Adhere to this language requirement strictly.**
 
@@ -480,22 +690,11 @@ ${historyString}
 Here is the user's latest message:
 "${message}"
 
-Based on the user's message, I have pre-filtered some potentially relevant practices from my knowledge base. Please use these as the primary source for your answer:
+Here is the context for your response:
 ${contextDataString}
 
 Your Task:
-Analyze the user's request in the context of our conversation. Then, using ONLY the provided relevant practices from the JSON above, craft a helpful response.
-
-**Response Requirements:**
-1.  **Structure:** Use clear markdown categories (e.g., ### Soundarya Lahari Practice).
-2.  **Explanation:** Briefly explain WHY the recommendation is suitable by referencing its purpose from the provided JSON data.
-3.  **Include Mantra Text:** This is critical. For each recommendation, you MUST include all relevant mantra texts.
-    *   For a 'sloka', you MUST include its \`bijaMantra\` and its full \`slokaText\`.
-    *   For a 'remedy' or 'tantraPractice', list each string from the \`transliteratedMantra\` array on a new line.
-    *   Format the mantra text clearly, for example using bold for the Bija Mantra and italics or a blockquote for the sloka/mantra text.
-4.  **Conciseness:** Be as concise as possible in your explanations, but ensure all required mantra texts are always included.
-5.  **Relevance:** If none of the provided practices seem relevant, politely explain that you couldn't find a direct match and ask the user to rephrase their problem.
-6.  **Context:** Do not invent new practices or go beyond the provided JSON context.
+${taskInstruction}
 7.  **Language:** (Reiterated for emphasis) Your entire response MUST be in ${language}.
 `;
 

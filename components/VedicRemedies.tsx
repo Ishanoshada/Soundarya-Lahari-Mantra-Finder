@@ -44,6 +44,27 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
             remedy.purpose.toLowerCase().includes(lowercasedTerm)
         );
     }, [searchTerm]);
+
+    const { currentIndex, handlePrevious, handleNext } = useMemo(() => {
+        if (!selectedRemedyId || filteredRemedies.length === 0) {
+            return { currentIndex: -1, handlePrevious: () => {}, handleNext: () => {} };
+        }
+        const idx = filteredRemedies.findIndex(remedy => remedy.id === selectedRemedyId);
+        
+        const prev = () => {
+            if (idx > 0) {
+                setSelectedRemedyId(filteredRemedies[idx - 1].id);
+            }
+        };
+
+        const next = () => {
+            if (idx < filteredRemedies.length - 1) {
+                setSelectedRemedyId(filteredRemedies[idx + 1].id);
+            }
+        };
+        
+        return { currentIndex: idx, handlePrevious: prev, handleNext: next };
+    }, [selectedRemedyId, filteredRemedies]);
     
     // Auto-select the first item in the list if the current selection is filtered out or not set.
     useEffect(() => {
@@ -101,13 +122,18 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
     
     return (
         <div className="w-full max-w-6xl mx-auto my-6 animate-landing animate-fade-in" style={{ animationDelay: '1.3s' }}>
-            <div className="text-center mb-6">
+            <div className="text-center mb-4">
                 <h3 className="text-3xl font-bold text-amber-900">Vedic Remedies</h3>
                 <p className="text-amber-700 mt-1">
                     Practices from "Infallible Vedic Remedies" by Swami Shantananda Puri
                 </p>
-                <p className="text-xs text-amber-600/80 mt-2 italic px-4">
-                    Disclaimer: The remedies listed below are sourced directly from the aforementioned text. Their efficacy has not been independently verified by the creators of this application.
+            </div>
+            <div className="mb-6 max-w-3xl mx-auto bg-amber-100/60 border-l-4 border-amber-500 text-amber-800 p-3 rounded-r-lg flex items-start shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
+                </svg>
+                <p className="text-xs italic">
+                    <strong>Disclaimer:</strong> The remedies listed below are sourced directly from the aforementioned text. Their efficacy has not been independently verified by the creators of this application.
                 </p>
             </div>
             
@@ -140,23 +166,47 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
                 <div className="md:col-span-2">
                     {isCardLoading && <LoadingSpinner />}
                     {!isCardLoading && error && <ErrorMessage message={error} />}
-                    {/* FIX: Calculate isSelected and pass correct props to RemedyCard. */}
-                    {!isCardLoading && !error && remedyForDisplay ? (() => {
-                        const bookmarkedItem = bookmarkedItems.find(i => i.type === 'remedy' && i.data.id === remedyForDisplay.id);
-                        const isSelected = !!bookmarkedItem;
-                        const bookmarkedSections = bookmarkedItem?.sections || [];
-                        const highlightKey = `remedy_${remedyForDisplay.id}`;
-                        return (
-                            <RemedyCard 
-                                remedy={remedyForDisplay} 
-                                onToggleSelect={onToggleSelect}
-                                isSelected={isSelected}
-                                bookmarkedSections={bookmarkedSections}
-                                highlightedSections={highlightedSections[highlightKey] || []}
-                                onToggleSectionBookmark={onToggleSectionBookmark(remedyForDisplay, 'remedy')}
-                            />
-                        );
-                    })() : (
+                    {!isCardLoading && !error && remedyForDisplay ? (
+                        <>
+                          {(() => {
+                              const bookmarkedItem = bookmarkedItems.find(i => i.type === 'remedy' && i.data.id === remedyForDisplay.id);
+                              const isSelected = !!bookmarkedItem;
+                              const bookmarkedSections = bookmarkedItem?.sections || [];
+                              const highlightKey = `remedy_${remedyForDisplay.id}`;
+                              return (
+                                  <RemedyCard 
+                                      remedy={remedyForDisplay} 
+                                      onToggleSelect={onToggleSelect}
+                                      isSelected={isSelected}
+                                      bookmarkedSections={bookmarkedSections}
+                                      highlightedSections={highlightedSections[highlightKey] || []}
+                                      onToggleSectionBookmark={onToggleSectionBookmark(remedyForDisplay, 'remedy')}
+                                  />
+                              );
+                          })()}
+                           <div className="flex justify-between items-center mt-4 px-2">
+                                <button
+                                    onClick={handlePrevious}
+                                    disabled={currentIndex <= 0}
+                                    className="px-6 py-2 font-semibold rounded-full text-amber-800 bg-white/80 hover:bg-amber-100 transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Previous Remedy"
+                                >
+                                    &larr; Previous
+                                </button>
+                                {currentIndex !== -1 && (
+                                    <span className="text-sm text-amber-700 font-medium">{currentIndex + 1} / {filteredRemedies.length}</span>
+                                )}
+                                <button
+                                    onClick={handleNext}
+                                    disabled={currentIndex === -1 || currentIndex >= filteredRemedies.length - 1}
+                                    className="px-6 py-2 font-semibold rounded-full text-amber-800 bg-white/80 hover:bg-amber-100 transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                                    aria-label="Next Remedy"
+                                >
+                                    Next &rarr;
+                                </button>
+                            </div>
+                        </>
+                    ) : (
                         !isCardLoading && !error && (
                             <div className="flex items-center justify-center h-full bg-white/60 p-4 rounded-xl border border-amber-300/50 shadow-lg min-h-[400px]">
                                 <p className="text-amber-700 text-center">

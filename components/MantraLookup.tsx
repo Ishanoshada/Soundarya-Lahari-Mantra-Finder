@@ -75,6 +75,25 @@ const MantraLookup: React.FC<MantraLookupProps> = ({
     }
   };
 
+  const handleNavigation = (direction: 'next' | 'prev') => {
+      if (!untranslatedResults || untranslatedResults.length !== 1) return;
+
+      const currentSlokaNumber = untranslatedResults[0].slokaNumber;
+      let targetSlokaNumber: number;
+
+      if (direction === 'next') {
+          targetSlokaNumber = currentSlokaNumber + 1;
+          if (targetSlokaNumber > SLOKA_DATA.length) return;
+      } else {
+          targetSlokaNumber = currentSlokaNumber - 1;
+          if (targetSlokaNumber < 1) return;
+      }
+
+      const targetSlokaId = String(targetSlokaNumber);
+      setQuery(targetSlokaId);
+      performLookup(targetSlokaId);
+  };
+
   useEffect(() => {
     // This effect handles the initial lookup from a shared URL or bookmark click
     if (initialSelectedId && !initialLookupPerformed.current) {
@@ -207,6 +226,29 @@ const MantraLookup: React.FC<MantraLookupProps> = ({
               onAnalyzeRequest={onAnalyzeRequest} />
           );
         })}
+
+        {displayResults && displayResults.length === 1 && !isLoading && (
+            <div className="flex justify-between items-center mt-4 px-2">
+                <button
+                    onClick={() => handleNavigation('prev')}
+                    disabled={displayResults[0].slokaNumber <= 1}
+                    className="px-6 py-2 font-semibold rounded-full text-amber-800 bg-white/80 hover:bg-amber-100 transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Previous Sloka"
+                >
+                    &larr; Previous Sloka
+                </button>
+                <span className="text-sm text-amber-700 font-medium">Sloka {displayResults[0].slokaNumber} / {SLOKA_DATA.length}</span>
+                <button
+                    onClick={() => handleNavigation('next')}
+                    disabled={displayResults[0].slokaNumber >= SLOKA_DATA.length}
+                    className="px-6 py-2 font-semibold rounded-full text-amber-800 bg-white/80 hover:bg-amber-100 transition-all duration-300 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Next Sloka"
+                >
+                    Next Sloka &rarr;
+                </button>
+            </div>
+        )}
+        
         {!error && !displayResults && !isLoading && (
             <div className="text-center text-amber-700 mt-16 text-lg">
                 <p>Look up a Bija Mantra to see its associated slokas,</p>

@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import type { BookmarkedItem, Sloka, VedicRemedy, TantraBookMantra } from '../types';
+import type { BookmarkedItem, Sloka, VedicRemedy, TantraBookMantra, MantraBookItem, BuddhistChant } from '../types';
 import CopyableLink from './CopyableLink';
 
 const BookmarkIcon = () => (
@@ -39,6 +38,8 @@ const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItems, lang
         const slokaItems = bookmarkedItems.filter((i): i is { type: 'sloka'; data: Sloka; sections?: string[] } => i.type === 'sloka');
         const remedyItems = bookmarkedItems.filter((i): i is { type: 'remedy'; data: VedicRemedy; sections?: string[] } => i.type === 'remedy');
         const tantraItems = bookmarkedItems.filter((i): i is { type: 'tantra'; data: TantraBookMantra; sections?: string[] } => i.type === 'tantra');
+        const mantraBookItems = bookmarkedItems.filter((i): i is { type: 'mantraBook'; data: MantraBookItem; sections?: string[] } => i.type === 'mantraBook');
+        const buddhistChantItems = bookmarkedItems.filter((i): i is { type: 'buddhistChant'; data: BuddhistChant; sections?: string[] } => i.type === 'buddhistChant');
 
         if (slokaItems.length > 0) {
             params.set('slokas', slokaItems.map(i => i.data.slokaNumber).join(','));
@@ -64,6 +65,23 @@ const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItems, lang
                 }
             });
         }
+        if (mantraBookItems.length > 0) {
+            params.set('mantraBook', mantraBookItems.map(i => i.data.id).join(','));
+            mantraBookItems.forEach(item => {
+                if (item.sections && item.sections.length > 0) {
+                    params.set(`mb${item.data.id}_sections`, item.sections.map(encodeURIComponent).join(','));
+                }
+            });
+        }
+        if (buddhistChantItems.length > 0) {
+            params.set('buddhistChants', buddhistChantItems.map(i => i.data.id).join(','));
+            buddhistChantItems.forEach(item => {
+                if (item.sections && item.sections.length > 0) {
+                    params.set(`bc${item.data.id}_sections`, item.sections.map(encodeURIComponent).join(','));
+                }
+            });
+        }
+
 
         if (language !== 'English') {
             const langCode = LANG_CODE_MAP[language];

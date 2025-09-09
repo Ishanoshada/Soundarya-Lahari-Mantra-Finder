@@ -4,7 +4,7 @@ import SearchBar from './components/SearchBar';
 import MantraCard from './components/MantraCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
-import CombinedSelections from './components/CombinedMantras';
+import CombinedSelections from './components/CombinedSelections';
 import BijaMantraExplainer from './components/BijaMantraExplainer';
 import IntroModal from './components/IntroModal';
 import MantraLookup from './components/MantraLookup';
@@ -12,6 +12,8 @@ import ScreenshotButton from './components/ScreenshotButton';
 import VedicRemedies from './components/VedicRemedies';
 import RemedyCard from './components/RemedyCard';
 import TantraBook from './components/TantraBook';
+import MantraBook from './components/MantraBook';
+import MantraBookCard from './components/MantraBookCard';
 import AIChat from './components/AIChat';
 import BookmarkManager from './components/BookmarkManager';
 import SlokaAnalysisModal from './components/SlokaAnalysisModal';
@@ -22,7 +24,11 @@ import { findMantraForProblem, translateSearchResults } from './services/geminiS
 import { SLOKA_DATA } from './constants/slokaData';
 import { VEDIC_REMEDIES_DATA } from './constants/remediesData';
 import { TANTRA_BOOK_DATA } from './constants/tantraBookData';
-import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, BookmarkedItem } from './types';
+import { MANTRA_BOOK_DATA } from './constants/mantraBookData';
+import { BUDDHIST_CHANTS_DATA } from './constants/buddhistChantsData';
+import BuddhistChantCard from './components/BuddhistChantCard';
+import BuddhistChants from './components/BuddhistChants';
+import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, MantraBookItem, BookmarkedItem, BuddhistChant } from './types';
 
 const LANGUAGES = ["English", "Sinhala", "Tamil", "Hindi", "Malayalam"];
 const CODE_LANG_MAP: { [key: string]: string } = {
@@ -32,7 +38,7 @@ const CODE_LANG_MAP: { [key: string]: string } = {
     'hi': 'Hindi',
     'ml': 'Malayalam'
 };
-type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'aiChat';
+type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'mantraBook' | 'aiChat' | 'buddhistChants';
 
 const formatTitleForDisplay = (title: string): string => {
     return title.replace(/\s*-\s*\d+$/, '').trim();
@@ -45,8 +51,12 @@ interface SearchResultsProps {
   highlightedSections: Record<string, string[]>;
   onToggleSloka: (sloka: Sloka) => void;
   onToggleRemedy: (remedy: VedicRemedy) => void;
+  onToggleMantraBookItem: (item: MantraBookItem) => void;
+  onToggleBuddhistChant: (item: BuddhistChant) => void;
   onToggleSlokaSection: (sloka: Sloka, sectionTitle: string) => void;
   onToggleRemedySection: (remedy: VedicRemedy, sectionTitle: string) => void;
+  onToggleMantraBookSection: (item: MantraBookItem, sectionTitle: string) => void;
+  onToggleBuddhistChantSection: (item: BuddhistChant, sectionTitle: string) => void;
   onExplainRequest: (slokas: Sloka[]) => void;
   onAnalyzeRequest: (sloka: Sloka) => void;
 }
@@ -60,15 +70,21 @@ const ChevronDownIcon = () => (
 const SearchResults: React.FC<SearchResultsProps> = (props) => {
     const { 
         results, bookmarkedItems, highlightedSections, 
-        onToggleSloka, onToggleRemedy, onToggleSlokaSection, onToggleRemedySection,
+        onToggleSloka, onToggleRemedy, onToggleMantraBookItem, onToggleBuddhistChant,
+        onToggleSlokaSection, onToggleRemedySection, onToggleMantraBookSection, onToggleBuddhistChantSection,
         onExplainRequest, onAnalyzeRequest 
     } = props;
     
     const [openIndex, setOpenIndex] = useState<number | null>(() => {
         const firstHighlightedIndex = results.findIndex(result => {
-            const key = result.type === 'sloka' 
-                ? `sloka_${result.data.slokaNumber}` 
-                : `remedy_${result.data.id}`;
+            let key;
+            switch (result.type) {
+                case 'sloka': key = `sloka_${result.data.slokaNumber}`; break;
+                case 'remedy': key = `remedy_${result.data.id}`; break;
+                case 'mantraBook': key = `mantraBook_${result.data.id}`; break;
+                case 'buddhistChant': key = `buddhistChant_${result.data.id}`; break;
+                default: return false;
+            }
             return highlightedSections && highlightedSections[key];
         });
         return firstHighlightedIndex !== -1 ? firstHighlightedIndex : 0;
@@ -77,33 +93,29 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
 
     if (results.length === 1) {
         const result = results[0];
+        const isBookmarked = (item: SearchResult) => bookmarkedItems.some(i => 
+            i.type === item.type && 
+            ('slokaNumber' in i.data ? i.data.slokaNumber : i.data.id) === ('slokaNumber' in item.data ? item.data.slokaNumber : item.data.id)
+        );
         const bookmarkedItem = bookmarkedItems.find(i => i.type === result.type && ('slokaNumber' in i.data ? i.data.slokaNumber : i.data.id) === ('slokaNumber' in result.data ? result.data.slokaNumber : result.data.id));
-        const highlightKey = result.type === 'sloka' ? `sloka_${result.data.slokaNumber}` : `remedy_${result.data.id}`;
         
-        if (result.type === 'sloka') {
-            return (
-                <MantraCard
-                    mantra={result.data}
-                    onToggleSelect={() => onToggleSloka(result.data)}
-                    isSelected={!!bookmarkedItem}
-                    bookmarkedSections={bookmarkedItem?.sections || []}
-                    highlightedSections={highlightedSections[highlightKey] || []}
-                    onToggleSectionBookmark={(title) => onToggleSlokaSection(result.data, title)}
-                    onExplainRequest={() => onExplainRequest([result.data])}
-                    onAnalyzeRequest={onAnalyzeRequest}
-                />
-            );
-        } else { // type is 'remedy'
-            return (
-                <RemedyCard 
-                    remedy={result.data} 
-                    onToggleSelect={() => onToggleRemedy(result.data)} 
-                    isSelected={!!bookmarkedItem}
-                    bookmarkedSections={bookmarkedItem?.sections || []}
-                    highlightedSections={highlightedSections[highlightKey] || []}
-                    onToggleSectionBookmark={(title) => onToggleRemedySection(result.data, title)}
-                />
-            );
+        let highlightKey: string = '';
+        switch (result.type) {
+            case 'sloka': highlightKey = `sloka_${result.data.slokaNumber}`; break;
+            case 'remedy': highlightKey = `remedy_${result.data.id}`; break;
+            case 'mantraBook': highlightKey = `mantraBook_${result.data.id}`; break;
+            case 'buddhistChant': highlightKey = `buddhistChant_${result.data.id}`; break;
+        }
+
+        switch (result.type) {
+            case 'sloka':
+                return <MantraCard mantra={result.data} onToggleSelect={() => onToggleSloka(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleSlokaSection(result.data, title)} onExplainRequest={() => onExplainRequest([result.data])} onAnalyzeRequest={onAnalyzeRequest} />;
+            case 'remedy':
+                return <RemedyCard remedy={result.data} onToggleSelect={() => onToggleRemedy(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleRemedySection(result.data, title)} />;
+            case 'mantraBook':
+                return <div className="p-0 md:p-0"><MantraBookCard mantra={result.data} onToggleSelect={() => onToggleMantraBookItem(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleMantraBookSection(result.data, title)} /></div>;
+            case 'buddhistChant':
+                return <div className="p-0 md:p-0"><BuddhistChantCard chant={result.data} onToggleSelect={() => onToggleBuddhistChant(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleBuddhistChantSection(result.data, title)} /></div>;
         }
     }
 
@@ -117,16 +129,37 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                 The divine wisdom suggests a combination of {results.length} synergistic remedies for your situation:
             </p>
             {results.map((result, index) => {
-                const key = result.type === 'sloka' ? result.data.slokaNumber : result.data.id;
-                const title = result.type === 'sloka' ? formatTitleForDisplay(result.data.title) : result.data.title;
-                const identifier = result.type === 'sloka' 
-                    ? `Sloka #${result.data.slokaNumber}` 
-                    : `Remedy #${result.data.id}`;
+                let key, title, identifier, highlightKey;
+                switch (result.type) {
+                    case 'sloka':
+                        key = result.data.slokaNumber;
+                        title = formatTitleForDisplay(result.data.title);
+                        identifier = `Sloka #${key}`;
+                        highlightKey = `sloka_${key}`;
+                        break;
+                    case 'remedy':
+                        key = result.data.id;
+                        title = result.data.title;
+                        identifier = `Remedy #${key}`;
+                        highlightKey = `remedy_${key}`;
+                        break;
+                    case 'mantraBook':
+                        key = result.data.id;
+                        title = result.data.title;
+                        identifier = `Compendium #${key}`;
+                        highlightKey = `mantraBook_${key}`;
+                        break;
+                    case 'buddhistChant':
+                        key = result.data.id;
+                        title = result.data.title;
+                        identifier = `Chant #${key}`;
+                        highlightKey = `buddhistChant_${key}`;
+                        break;
+                }
 
                 const bookmarkedItem = bookmarkedItems.find(i => i.type === result.type && ('slokaNumber' in i.data ? i.data.slokaNumber : i.data.id) === key);
                 const isSelected = !!bookmarkedItem;
                 const bookmarkedSections = bookmarkedItem?.sections || [];
-                const highlightKey = result.type === 'sloka' ? `sloka_${key}` : `remedy_${key}`;
                 const highlightedSectionsList = highlightedSections[highlightKey] || [];
                 
                 return (
@@ -151,13 +184,12 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                                         isSelected={isSelected}
                                         bookmarkedSections={bookmarkedSections}
                                         highlightedSections={highlightedSectionsList}
-                                        // FIX: Use onToggleSlokaSection prop directly, as createSectionToggleHandler is out of scope.
                                         onToggleSectionBookmark={(sectionTitle) => onToggleSlokaSection(result.data, sectionTitle)}
                                         onExplainRequest={() => onExplainRequest([result.data])}
                                         onAnalyzeRequest={onAnalyzeRequest}
                                         isNested={true}
                                     />
-                                ) : (
+                                ) : result.type === 'remedy' ? (
                                     <div className="p-6 md:p-8">
                                         <RemedyCard 
                                             remedy={result.data} 
@@ -165,11 +197,32 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                                             isSelected={isSelected}
                                             bookmarkedSections={bookmarkedSections}
                                             highlightedSections={highlightedSectionsList}
-                                            // FIX: Use onToggleRemedySection prop directly, as createSectionToggleHandler is out of scope.
                                             onToggleSectionBookmark={(sectionTitle) => onToggleRemedySection(result.data, sectionTitle)}
                                         />
                                     </div>
-                                )}
+                                ) : result.type === 'mantraBook' ? (
+                                    <div className="p-6 md:p-8">
+                                        <MantraBookCard
+                                          mantra={result.data}
+                                          onToggleSelect={() => onToggleMantraBookItem(result.data)}
+                                          isSelected={isSelected}
+                                          bookmarkedSections={bookmarkedSections}
+                                          highlightedSections={highlightedSectionsList}
+                                          onToggleSectionBookmark={(title) => onToggleMantraBookSection(result.data, title)}
+                                        />
+                                    </div>
+                                ) : result.type === 'buddhistChant' ? (
+                                    <div className="p-6 md:p-8">
+                                        <BuddhistChantCard
+                                          chant={result.data}
+                                          onToggleSelect={() => onToggleBuddhistChant(result.data)}
+                                          isSelected={isSelected}
+                                          bookmarkedSections={bookmarkedSections}
+                                          highlightedSections={highlightedSectionsList}
+                                          onToggleSectionBookmark={(title) => onToggleBuddhistChantSection(result.data, title)}
+                                        />
+                                    </div>
+                                ) : null}
                             </div>
                         )}
                     </div>
@@ -264,21 +317,60 @@ const App: React.FC = () => {
         });
     }
 
+    const mantraBookIds = urlParams.get('mantraBook')?.split(',').map(Number).filter(n => !isNaN(n));
+    if (mantraBookIds) {
+        mantraBookIds.forEach(id => {
+            const item = MANTRA_BOOK_DATA.find(t => t.id === id);
+            if (item) {
+                const sectionsParam = urlParams.get(`mb${id}_sections`);
+                const sections = sectionsParam ? sectionsParam.split(',').map(decodeURIComponent) : undefined;
+                loadedBookmarks.push({ type: 'mantraBook', data: item, sections });
+                if (sections) {
+                    loadedHighlights[`mantraBook_${id}`] = sections;
+                }
+            }
+        });
+    }
+
+    const buddhistChantIds = urlParams.get('buddhistChants')?.split(',').map(Number).filter(n => !isNaN(n));
+    if (buddhistChantIds) {
+        buddhistChantIds.forEach(id => {
+            const item = BUDDHIST_CHANTS_DATA.find(t => t.id === id);
+            if (item) {
+                const sectionsParam = urlParams.get(`bc${id}_sections`);
+                const sections = sectionsParam ? sectionsParam.split(',').map(decodeURIComponent) : undefined;
+                loadedBookmarks.push({ type: 'buddhistChant', data: item, sections });
+                if (sections) {
+                    loadedHighlights[`buddhistChant_${id}`] = sections;
+                }
+            }
+        });
+    }
+
+
     if (loadedBookmarks.length > 0) {
         setBookmarkedItems(loadedBookmarks);
         setHighlightedSections(loadedHighlights);
         
-        // Set initial view with priority: remedy > tantra > sloka
+        // Set initial view with priority
+        const firstBuddhistChant = loadedBookmarks.find(i => i.type === 'buddhistChant');
         const firstRemedy = loadedBookmarks.find(i => i.type === 'remedy');
         const firstTantra = loadedBookmarks.find(i => i.type === 'tantra');
+        const firstMantraBook = loadedBookmarks.find(i => i.type === 'mantraBook');
         const firstSloka = loadedBookmarks.find(i => i.type === 'sloka');
 
-        if (firstRemedy) {
+        if (firstBuddhistChant) {
+            setMode('buddhistChants');
+            setInitialViewTarget({ mode: 'buddhistChants', id: (firstBuddhistChant.data as BuddhistChant).id });
+        } else if (firstRemedy) {
             setMode('vedic');
             setInitialViewTarget({ mode: 'vedic', id: (firstRemedy.data as VedicRemedy).id });
         } else if (firstTantra) {
             setMode('tantraBook');
             setInitialViewTarget({ mode: 'tantraBook', id: (firstTantra.data as TantraBookMantra).id });
+        } else if (firstMantraBook) {
+            setMode('mantraBook');
+            setInitialViewTarget({ mode: 'mantraBook', id: (firstMantraBook.data as MantraBookItem).id });
         } else if (firstSloka) {
             setMode('lookup');
             setInitialViewTarget({ mode: 'lookup', id: (firstSloka.data as Sloka).slokaNumber });
@@ -338,10 +430,17 @@ const App: React.FC = () => {
                 if (item.source === 'Soundarya Lahari') {
                     const sloka = SLOKA_DATA.find(s => s.slokaNumber === item.identifier);
                     return sloka ? { type: 'sloka' as const, data: sloka } : null;
-                } else { // 'Vedic Remedies'
+                } else if (item.source === 'Vedic Remedies'){
                     const remedy = VEDIC_REMEDIES_DATA.find(r => r.id === item.identifier);
                     return remedy ? { type: 'remedy' as const, data: remedy } : null;
+                } else if (item.source === 'Mantra Book') {
+                    const mantraItem = MANTRA_BOOK_DATA.find(m => m.id === item.identifier);
+                    return mantraItem ? { type: 'mantraBook' as const, data: mantraItem } : null;
+                } else if (item.source === 'Buddhist Chants') {
+                    const chant = BUDDHIST_CHANTS_DATA.find(c => c.id === item.identifier);
+                    return chant ? { type: 'buddhistChant' as const, data: chant } : null;
                 }
+                return null; // Handle potential unknown source
             }).filter(item => item !== null) as SearchResult[];
             
             if (localResults.length === 0 && identifiers.length > 0) {
@@ -350,13 +449,9 @@ const App: React.FC = () => {
             
             // Prioritize Soundarya Lahari slokas in the results
             localResults.sort((a, b) => {
-                if (a.type === 'sloka' && b.type !== 'sloka') {
-                    return -1; // a (sloka) comes before b (remedy)
-                }
-                if (a.type !== 'sloka' && b.type === 'sloka') {
-                    return 1; // b (sloka) comes before a (remedy)
-                }
-                return 0; // Keep original order for items of the same type
+                if (a.type === 'sloka' && b.type !== 'sloka') return -1;
+                if (a.type !== 'sloka' && b.type === 'sloka') return 1;
+                return 0;
             });
 
             setUntranslatedMantraResults(localResults);
@@ -437,7 +532,35 @@ const App: React.FC = () => {
       }
   };
 
-  const createSectionToggleHandler = <T extends Sloka | VedicRemedy | TantraBookMantra>(
+  const handleToggleMantraBookItem = (itemToToggle: MantraBookItem) => {
+      const existingIndex = bookmarkedItems.findIndex(item => 
+          item.type === 'mantraBook' && item.data.id === itemToToggle.id
+      );
+
+      if (existingIndex > -1) {
+          setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+      } else {
+          const newItem: BookmarkedItem = { type: 'mantraBook', data: itemToToggle };
+          setBookmarkedItems(items => [...items, newItem]);
+          setShowBookmarkPanel(true);
+      }
+  };
+
+  const handleToggleBuddhistChant = (chantToToggle: BuddhistChant) => {
+      const existingIndex = bookmarkedItems.findIndex(item =>
+          item.type === 'buddhistChant' && item.data.id === chantToToggle.id
+      );
+
+      if (existingIndex > -1) {
+          setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+      } else {
+          const newItem: BookmarkedItem = { type: 'buddhistChant', data: chantToToggle };
+          setBookmarkedItems(items => [...items, newItem]);
+          setShowBookmarkPanel(true);
+      }
+  };
+
+  const createSectionToggleHandler = <T extends Sloka | VedicRemedy | TantraBookMantra | MantraBookItem | BuddhistChant>(
     itemData: T,
     itemType: BookmarkedItem['type']
   ) => (sectionTitle: string) => {
@@ -473,16 +596,9 @@ const App: React.FC = () => {
   const handleRemoveBookmark = (itemToRemove: BookmarkedItem) => {
     setBookmarkedItems(currentItems => currentItems.filter(item => {
         if (item.type !== itemToRemove.type) return true;
-        switch(item.type) {
-            case 'sloka':
-                return (item.data as Sloka).slokaNumber !== (itemToRemove.data as Sloka).slokaNumber;
-            case 'remedy':
-                return (item.data as VedicRemedy).id !== (itemToRemove.data as VedicRemedy).id;
-            case 'tantra':
-                return (item.data as TantraBookMantra).id !== (itemToRemove.data as TantraBookMantra).id;
-            default:
-                return true;
-        }
+        const idKey = 'slokaNumber' in item.data ? 'slokaNumber' : 'id';
+        const removeIdKey = 'slokaNumber' in itemToRemove.data ? 'slokaNumber' : 'id';
+        return (item.data as any)[idKey] !== (itemToRemove.data as any)[removeIdKey];
     }));
   };
 
@@ -502,6 +618,14 @@ const App: React.FC = () => {
                 case 'tantra':
                     setMode('tantraBook');
                     setInitialViewTarget({ mode: 'tantraBook', id: item.data.id });
+                    break;
+                case 'mantraBook':
+                    setMode('mantraBook');
+                    setInitialViewTarget({ mode: 'mantraBook', id: item.data.id });
+                    break;
+                case 'buddhistChant':
+                    setMode('buddhistChants');
+                    setInitialViewTarget({ mode: 'buddhistChants', id: item.data.id });
                     break;
             }
         }, 0);
@@ -529,7 +653,7 @@ const App: React.FC = () => {
         setMode(buttonMode);
         setInitialViewTarget(null); // Clear target when manually changing modes
       }}
-      className={`px-6 py-2 rounded-full text-lg font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 animate-landing animate-fade-in ${
+      className={`px-4 py-2 rounded-full text-md md:text-lg font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 animate-landing animate-fade-in ${
         mode === buttonMode
           ? 'bg-amber-800 text-white shadow-md'
           : 'bg-white/80 text-amber-800 hover:bg-amber-100'
@@ -563,12 +687,14 @@ const App: React.FC = () => {
              </button>
          </div>
 
-        <div className="flex justify-center flex-wrap gap-4 my-6">
+        <div className="flex justify-center flex-wrap gap-2 md:gap-4 my-6">
           {renderNavButton('find', 'Find Mantra for Problem', 0)}
-          {renderNavButton('lookup', 'Lookup Mantra or Sloka', 1)}
+          {renderNavButton('lookup', 'Lookup Sloka', 1)}
           {renderNavButton('vedic', 'Vedic Remedies', 2)}
-          {renderNavButton('tantraBook', 'Mantra Compendium', 3)}
-          {renderNavButton('aiChat', 'AI Chat Guide', 4)}
+          {renderNavButton('mantraBook', 'Mantra Compendium', 3)}
+          {renderNavButton('tantraBook', 'Tantric Practices', 4)}
+          {renderNavButton('buddhistChants', 'Buddhist Chants', 5)}
+          {renderNavButton('aiChat', 'AI Chat Guide', 6)}
         </div>
 
         <div className="w-full max-w-xl mx-auto mb-4 flex justify-center items-center gap-4 animate-landing animate-fade-in" style={{ animationDelay: '1.2s' }}>
@@ -608,8 +734,12 @@ const App: React.FC = () => {
                   highlightedSections={highlightedSections}
                   onToggleSloka={handleToggleSloka}
                   onToggleRemedy={handleToggleRemedy}
+                  onToggleMantraBookItem={handleToggleMantraBookItem}
+                  onToggleBuddhistChant={handleToggleBuddhistChant}
                   onToggleSlokaSection={(sloka, title) => createSectionToggleHandler(sloka, 'sloka')(title)}
                   onToggleRemedySection={(remedy, title) => createSectionToggleHandler(remedy, 'remedy')(title)}
+                  onToggleMantraBookSection={(item, title) => createSectionToggleHandler(item, 'mantraBook')(title)}
+                  onToggleBuddhistChantSection={(item, title) => createSectionToggleHandler(item, 'buddhistChant')(title)}
                   onExplainRequest={handleExplainRequest}
                   onAnalyzeRequest={handleAnalyzeRequest}
                 />
@@ -653,6 +783,17 @@ const App: React.FC = () => {
                 initialSelectedId={initialViewTargetRef.current?.mode === 'vedic' ? initialViewTargetRef.current.id : null}
            />
         )}
+        
+        {mode === 'mantraBook' && (
+           <MantraBook 
+                bookmarkedItems={bookmarkedItems}
+                highlightedSections={highlightedSections}
+                onToggleSelect={handleToggleMantraBookItem}
+                onToggleSectionBookmark={createSectionToggleHandler}
+                language={language}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'mantraBook' ? initialViewTargetRef.current.id : null}
+           />
+        )}
 
         {mode === 'tantraBook' && (
            <TantraBook 
@@ -662,6 +803,17 @@ const App: React.FC = () => {
                 onToggleSectionBookmark={createSectionToggleHandler}
                 language={language}
                 initialSelectedId={initialViewTargetRef.current?.mode === 'tantraBook' ? initialViewTargetRef.current.id : null}
+           />
+        )}
+
+        {mode === 'buddhistChants' && (
+           <BuddhistChants
+                bookmarkedItems={bookmarkedItems}
+                highlightedSections={highlightedSections}
+                onToggleSelect={handleToggleBuddhistChant}
+                onToggleSectionBookmark={createSectionToggleHandler}
+                language={language}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'buddhistChants' ? initialViewTargetRef.current.id : null}
            />
         )}
 
