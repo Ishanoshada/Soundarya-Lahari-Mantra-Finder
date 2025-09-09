@@ -1,13 +1,15 @@
 # Divine Mantras & Remedies: An AI Spiritual Guide
 
+
+<p align="center">
+  <strong>A comprehensive, interactive guide designed to unlock the profound wisdom within revered ancient Hindu texts.</strong>
+</p>
+
+
 <p align="center">
 
   ![1](/imgs/1.png)
 
-</p>
-
-<p align="center">
-  <strong>A comprehensive, interactive guide designed to unlock the profound wisdom within revered ancient Hindu texts.</strong>
 </p>
 
 <p align="center">
