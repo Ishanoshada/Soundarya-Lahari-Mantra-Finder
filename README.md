@@ -9,7 +9,9 @@
 </p>
 
 <p align="center">
-  <img src="/imgs/1.png" alt="Application Screenshot 1">
+
+![1](/imgs/1.png)
+
 </p>
 
 ## Key Features
@@ -45,8 +47,11 @@ Our vision is to make the deep, often complex, wisdom of these ancient tradition
 
 ---
 
+
 <p align="center">
-  <img src="/imgs/2.png" alt="Application Screenshot 2">
+
+![2](/imgs/2.png)
+
 </p>
 
 ## Core Spiritual Concepts
@@ -78,7 +83,9 @@ A collection of essential chants from the Pāli Canon, as found in the "Buddhist
 ---
 
 <p align="center">
-  <img src="/imgs/3.png" alt="Application Screenshot 3">
+
+![3](/imgs/3.png)
+
 </p>
 
 ## Feature Walkthrough: A Step-by-Step Journey
@@ -135,15 +142,22 @@ Use the navigation buttons at the top to explore each spiritual library individu
 - **Audio Pronunciation:** An icon next to each Soundarya Lahari Bija Mantra utilizes the browser's Web Speech API to provide an audio pronunciation, aiding in correct recitation.
 
 <p align="center">
-  <img src="/imgs/5.png" alt="Application Screenshot 5">
-</p>
-<p align="center">
-  <img src="/imgs/6.png" alt="Application Screenshot 6">
-</p>
-<p align="center">
-  <img src="/imgs/7.png" alt="Application Screenshot 7">
+
+![4](/imgs/4.png)
+
 </p>
 
+<p align="center">
+
+![5](/imgs/5.png)
+
+</p>
+
+<p align="center">
+
+![6](/imgs/6.png)
+
+</p>
 ## Understanding Bija Mantras
 
 A **Bija (seed) mantra** is a single-syllable sound that holds a potent, concentrated form of divine energy. In traditions like Shri Vidya, these seed sounds are considered the acoustic roots of deities, elements, and cosmic forces.
