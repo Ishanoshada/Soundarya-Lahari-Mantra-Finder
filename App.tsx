@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
 import MantraCard from './components/MantraCard';
@@ -20,15 +20,19 @@ import SlokaAnalysisModal from './components/SlokaAnalysisModal';
 import CombinedMantraModal from './components/CombinedMantraModal';
 import BookmarkToggleButton from './components/BookmarkToggleButton';
 import HowToUseModal from './components/HowToUseModal';
-import { findMantraForProblem, translateSearchResults } from './services/geminiService';
+import AudioLibrary from './components/AudioLibrary';
+import ResearchSummaries from './components/ResearchSummaries';
+import { findMantraForProblem, translateSearchResults, getApiUsage, API_LIMIT } from './services/geminiService';
 import { SLOKA_DATA } from './constants/slokaData';
 import { VEDIC_REMEDIES_DATA } from './constants/remediesData';
 import { TANTRA_BOOK_DATA } from './constants/tantraBookData';
 import { MANTRA_BOOK_DATA } from './constants/mantraBookData';
 import { BUDDHIST_CHANTS_DATA } from './constants/buddhistChantsData';
+import { AUDIO_TRACKS } from './constants/audioData';
+import { BACKGROUND_MUSIC_TRACKS } from './constants/backgroundMusicData';
 import BuddhistChantCard from './components/BuddhistChantCard';
 import BuddhistChants from './components/BuddhistChants';
-import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, MantraBookItem, BookmarkedItem, BuddhistChant } from './types';
+import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, MantraBookItem, BookmarkedItem, BuddhistChant, AudioTrack, BackgroundMusicTrack } from './types';
 
 const LANGUAGES = ["English", "Sinhala", "Tamil", "Hindi", "Malayalam"];
 const CODE_LANG_MAP: { [key: string]: string } = {
@@ -38,7 +42,7 @@ const CODE_LANG_MAP: { [key: string]: string } = {
     'hi': 'Hindi',
     'ml': 'Malayalam'
 };
-type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'mantraBook' | 'aiChat' | 'buddhistChants';
+type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'mantraBook' | 'buddhistChants' | 'listen' | 'aiChat' | 'research';
 
 const formatTitleForDisplay = (title: string): string => {
     return title.replace(/\s*-\s*\d+$/, '').trim();
@@ -99,6 +103,8 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
         );
         const bookmarkedItem = bookmarkedItems.find(i => i.type === result.type && ('slokaNumber' in i.data ? i.data.slokaNumber : i.data.id) === ('slokaNumber' in result.data ? result.data.slokaNumber : result.data.id));
         
+        const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
+
         let highlightKey: string = '';
         switch (result.type) {
             case 'sloka': highlightKey = `sloka_${result.data.slokaNumber}`; break;
@@ -109,13 +115,13 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
 
         switch (result.type) {
             case 'sloka':
-                return <MantraCard mantra={result.data} onToggleSelect={() => onToggleSloka(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleSlokaSection(result.data, title)} onExplainRequest={() => onExplainRequest([result.data])} onAnalyzeRequest={onAnalyzeRequest} />;
+                return <MantraCard mantra={result.data} onToggleSelect={() => onToggleSloka(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleSlokaSection(result.data, title)} onExplainRequest={() => onExplainRequest([result.data])} onAnalyzeRequest={onAnalyzeRequest} />;
             case 'remedy':
-                return <RemedyCard remedy={result.data} onToggleSelect={() => onToggleRemedy(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleRemedySection(result.data, title)} />;
+                return <RemedyCard remedy={result.data} onToggleSelect={() => onToggleRemedy(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleRemedySection(result.data, title)} />;
             case 'mantraBook':
-                return <div className="p-0 md:p-0"><MantraBookCard mantra={result.data} onToggleSelect={() => onToggleMantraBookItem(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleMantraBookSection(result.data, title)} /></div>;
+                return <div className="p-0 md:p-0"><MantraBookCard mantra={result.data} onToggleSelect={() => onToggleMantraBookItem(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleMantraBookSection(result.data, title)} /></div>;
             case 'buddhistChant':
-                return <div className="p-0 md:p-0"><BuddhistChantCard chant={result.data} onToggleSelect={() => onToggleBuddhistChant(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedItem?.sections || []} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleBuddhistChantSection(result.data, title)} /></div>;
+                return <div className="p-0 md:p-0"><BuddhistChantCard chant={result.data} onToggleSelect={() => onToggleBuddhistChant(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleBuddhistChantSection(result.data, title)} /></div>;
         }
     }
 
@@ -159,7 +165,7 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
 
                 const bookmarkedItem = bookmarkedItems.find(i => i.type === result.type && ('slokaNumber' in i.data ? i.data.slokaNumber : i.data.id) === key);
                 const isSelected = !!bookmarkedItem;
-                const bookmarkedSections = bookmarkedItem?.sections || [];
+                const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
                 const highlightedSectionsList = highlightedSections[highlightKey] || [];
                 
                 return (
@@ -253,16 +259,79 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>('find');
   const [searchParams, setSearchParams] = useState<{query: string, combine: boolean} | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [initialViewTarget, setInitialViewTarget] = useState<{ mode: AppMode, id: number } | null>(null);
+  const [initialViewTarget, setInitialViewTarget] = useState<{ mode: AppMode, id: number | string } | null>(null);
   const initialViewTargetRef = useRef(initialViewTarget);
   initialViewTargetRef.current = initialViewTarget;
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [areFloatingButtonsVisible, setAreFloatingButtonsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  const [isBgMusicPlaying, setIsBgMusicPlaying] = useState(false);
+  const [currentBgTrack, setCurrentBgTrack] = useState<BackgroundMusicTrack>(BACKGROUND_MUSIC_TRACKS[0]);
+  const bgAudioRef = useRef<HTMLAudioElement>(null);
+  const [apiUsage, setApiUsage] = useState({ count: 0, limit: API_LIMIT });
+
 
   const [showBookmarkPanel, setShowBookmarkPanel] = useState(true);
   const [highlightedSections, setHighlightedSections] = useState<Record<string, string[]>>({});
 
+  const handleApiUsageUpdate = useCallback(() => {
+    setApiUsage(getApiUsage());
+  }, []);
+
+  // Effect to lock body scroll when mobile nav is open
+  useEffect(() => {
+    if (isMobileNavOpen) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = 'auto';
+    }
+    return () => {
+        document.body.style.overflow = 'auto';
+    };
+}, [isMobileNavOpen]);
+
+  // Effect to show/hide floating buttons on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+        const currentScrollY = window.scrollY;
+
+        if (isMobileNavOpen) return;
+
+        if (currentScrollY < 10) {
+            setAreFloatingButtonsVisible(true);
+        } else if (currentScrollY > lastScrollY.current + 10) { // Scrolling down
+            setAreFloatingButtonsVisible(false);
+        } else if (currentScrollY < lastScrollY.current - 5) { // Scrolling up
+            setAreFloatingButtonsVisible(true);
+        }
+        
+        lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isMobileNavOpen]);
+
+  // Effect to control background music playback
+  useEffect(() => {
+    const audioEl = bgAudioRef.current;
+    if (audioEl) {
+        if (isBgMusicPlaying) {
+            audioEl.play().catch(error => {
+                console.warn("Background music playback failed:", error);
+                // Autoplay can be blocked by browsers. User interaction is often required.
+                // We'll leave the state as `true` and let the user click again if needed.
+            });
+        } else {
+            audioEl.pause();
+        }
+    }
+  }, [isBgMusicPlaying, currentBgTrack]); // Rerun when track changes to play if needed
+
 
   // Effect for loading bookmarked items from URL on initial load
   useEffect(() => {
+    handleApiUsageUpdate(); // Set initial API usage count
     const urlParams = new URLSearchParams(window.location.search);
     const loadedBookmarks: BookmarkedItem[] = [];
     const loadedHighlights: Record<string, string[]> = {};
@@ -347,19 +416,33 @@ const App: React.FC = () => {
         });
     }
 
+    const audioIds = urlParams.get('audio')?.split(',');
+    if (audioIds) {
+        audioIds.forEach(id => {
+            const track = AUDIO_TRACKS.find(t => t.id === id);
+            if (track) {
+                loadedBookmarks.push({ type: 'audio', data: track });
+            }
+        });
+    }
+
 
     if (loadedBookmarks.length > 0) {
         setBookmarkedItems(loadedBookmarks);
         setHighlightedSections(loadedHighlights);
         
         // Set initial view with priority
+        const firstAudio = loadedBookmarks.find(i => i.type === 'audio');
         const firstBuddhistChant = loadedBookmarks.find(i => i.type === 'buddhistChant');
         const firstRemedy = loadedBookmarks.find(i => i.type === 'remedy');
         const firstTantra = loadedBookmarks.find(i => i.type === 'tantra');
         const firstMantraBook = loadedBookmarks.find(i => i.type === 'mantraBook');
         const firstSloka = loadedBookmarks.find(i => i.type === 'sloka');
 
-        if (firstBuddhistChant) {
+        if (firstAudio) {
+            setMode('listen');
+            setInitialViewTarget({ mode: 'listen', id: (firstAudio.data as AudioTrack).id });
+        } else if (firstBuddhistChant) {
             setMode('buddhistChants');
             setInitialViewTarget({ mode: 'buddhistChants', id: (firstBuddhistChant.data as BuddhistChant).id });
         } else if (firstRemedy) {
@@ -382,7 +465,7 @@ const App: React.FC = () => {
     }
     
     setIsInitialLoad(false);
-  }, []); // Empty dependency array ensures it runs only once.
+  }, [handleApiUsageUpdate]); // Empty dependency array ensures it runs only once.
 
 
   const handleSearch = (query: string, combine: boolean) => {
@@ -421,6 +504,7 @@ const App: React.FC = () => {
         setError(null);
         try {
             const identifiers = await findMantraForProblem(searchParams.query, searchParams.combine);
+            handleApiUsageUpdate();
             if (identifiers.length === 0) {
                 setUntranslatedMantraResults([]);
                 return;
@@ -464,7 +548,7 @@ const App: React.FC = () => {
         }
     };
     performSearch();
-  }, [searchParams, isInitialLoad]);
+  }, [searchParams, isInitialLoad, handleApiUsageUpdate]);
 
   // Effect to handle translation when untranslated results or language changes
   useEffect(() => {
@@ -475,10 +559,15 @@ const App: React.FC = () => {
       }
 
       const translate = async () => {
+          if (language === 'English') {
+              setMantraResults(untranslatedMantraResults);
+              return;
+          }
           setIsLoading(true);
           setError(null);
           try {
               const translated = await translateSearchResults(untranslatedMantraResults, language);
+              handleApiUsageUpdate();
               setMantraResults(translated);
           } catch (e: any) {
               setError(e.message);
@@ -488,7 +577,7 @@ const App: React.FC = () => {
           }
       };
       translate();
-  }, [untranslatedMantraResults, language, isInitialLoad]);
+  }, [untranslatedMantraResults, language, isInitialLoad, handleApiUsageUpdate]);
   
   const handleToggleSloka = (slokaToToggle: Sloka) => {
       const existingIndex = bookmarkedItems.findIndex(item => 
@@ -559,6 +648,20 @@ const App: React.FC = () => {
           setShowBookmarkPanel(true);
       }
   };
+  
+  const handleToggleAudioBookmark = (trackToToggle: AudioTrack) => {
+    const existingIndex = bookmarkedItems.findIndex(item =>
+        item.type === 'audio' && item.data.id === trackToToggle.id
+    );
+
+    if (existingIndex > -1) {
+        setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+    } else {
+        const newItem: BookmarkedItem = { type: 'audio', data: trackToToggle };
+        setBookmarkedItems(items => [...items, newItem]);
+        setShowBookmarkPanel(true);
+    }
+  };
 
   const createSectionToggleHandler = <T extends Sloka | VedicRemedy | TantraBookMantra | MantraBookItem | BuddhistChant>(
     itemData: T,
@@ -580,14 +683,16 @@ const App: React.FC = () => {
         } else {
             const updatedItems = [...currentItems];
             const existingItem = { ...updatedItems[itemIndex] };
-            const existingSections = existingItem.sections || [];
+            if ('sections' in existingItem) {
+                const existingSections = existingItem.sections || [];
 
-            if (existingSections.includes(sectionTitle)) {
-                existingItem.sections = existingSections.filter(s => s !== sectionTitle);
-            } else {
-                existingItem.sections = [...existingSections, sectionTitle];
+                if (existingSections.includes(sectionTitle)) {
+                    existingItem.sections = existingSections.filter(s => s !== sectionTitle);
+                } else {
+                    existingItem.sections = [...existingSections, sectionTitle];
+                }
+                updatedItems[itemIndex] = existingItem;
             }
-            updatedItems[itemIndex] = existingItem;
             return updatedItems;
         }
       });
@@ -600,6 +705,12 @@ const App: React.FC = () => {
         const removeIdKey = 'slokaNumber' in itemToRemove.data ? 'slokaNumber' : 'id';
         return (item.data as any)[idKey] !== (itemToRemove.data as any)[removeIdKey];
     }));
+  };
+
+  const handleClearAllBookmarks = () => {
+    if (window.confirm("Are you sure you want to clear all your bookmarked items? This action cannot be undone.")) {
+        setBookmarkedItems([]);
+    }
   };
 
     const handleNavigateToBookmark = (item: BookmarkedItem) => {
@@ -627,6 +738,10 @@ const App: React.FC = () => {
                     setMode('buddhistChants');
                     setInitialViewTarget({ mode: 'buddhistChants', id: item.data.id });
                     break;
+                case 'audio':
+                    setMode('listen');
+                    setInitialViewTarget({ mode: 'listen', id: item.data.id });
+                    break;
             }
         }, 0);
     };
@@ -647,6 +762,10 @@ const App: React.FC = () => {
   const handleCloseAnalysis = () => setSlokaToAnalyze(null);
   const handleCloseCombinedMantraCreator = () => setShowCombinedMantraCreator(null);
 
+  const toggleBgMusic = () => {
+    setIsBgMusicPlaying(prev => !prev);
+  };
+
   const renderNavButton = (buttonMode: AppMode, text: string, index: number) => (
     <button
       onClick={() => {
@@ -664,9 +783,91 @@ const App: React.FC = () => {
       {text}
     </button>
   );
+  
+  const renderMobileNavButton = (buttonMode: AppMode, text: string) => (
+    <button
+      onClick={() => {
+        setMode(buttonMode);
+        setInitialViewTarget(null);
+        setIsMobileNavOpen(false); // Close nav on selection
+      }}
+      className={`w-full text-left px-4 py-3 rounded-lg text-lg font-semibold transition-colors ${
+        mode === buttonMode
+          ? 'bg-amber-800 text-white'
+          : 'text-amber-800 hover:bg-amber-200/50'
+      }`}
+      aria-pressed={mode === buttonMode}
+    >
+      {text}
+    </button>
+);
+
+    const PlayIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+        </svg>
+    );
+
+    const PauseIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+        </svg>
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100 text-slate-800 p-4 sm:p-8 flex flex-col items-center">
+      
+      <audio
+        ref={bgAudioRef}
+        key={currentBgTrack.src}
+        src={currentBgTrack.src}
+        loop
+        preload="auto"
+      />
+
+      {/* Mobile Nav Button */}
+      <button
+          onClick={() => setIsMobileNavOpen(true)}
+          className={`md:hidden fixed top-5 left-5 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-white/30 transition-all duration-300 ease-in-out ${areFloatingButtonsVisible ? 'translate-x-0 opacity-100' : '-translate-x-20 opacity-0'}`}
+          aria-label="Open navigation menu"
+          aria-hidden={!areFloatingButtonsVisible}
+      >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+      </button>
+
+      {/* Mobile Nav Panel */}
+      {isMobileNavOpen && (
+            <div className="md:hidden fixed inset-0 z-[60] flex" role="dialog" aria-modal="true">
+              {/* Backdrop */}
+              <div className="fixed inset-0 bg-black/50 animate-fade-in" onClick={() => setIsMobileNavOpen(false)}></div>
+              
+              {/* Sidebar */}
+              <div className="relative w-72 bg-amber-50 shadow-xl flex flex-col p-6 animate-slide-in-left">
+                  <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-xl font-bold text-amber-900">Navigation</h2>
+                      <button onClick={() => setIsMobileNavOpen(false)} aria-label="Close navigation menu" className="p-1 text-amber-700 hover:text-red-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                      </button>
+                  </div>
+                  <nav className="flex flex-col space-y-2">
+                      {renderMobileNavButton('find', 'Find Mantra for Problem')}
+                      {renderMobileNavButton('lookup', 'Lookup Sloka')}
+                      {renderMobileNavButton('vedic', 'Vedic Remedies')}
+                      {renderMobileNavButton('mantraBook', 'Mantra Compendium')}
+                      {renderMobileNavButton('tantraBook', 'Tantric Practices')}
+                      {renderMobileNavButton('buddhistChants', 'Buddhist Chants')}
+                      {renderMobileNavButton('listen', 'Listen to Chants')}
+                      {renderMobileNavButton('aiChat', 'AI Chat Guide')}
+                      {renderMobileNavButton('research', 'Research')}
+                  </nav>
+              </div>
+          </div>
+      )}
+      
       <main className="w-full">
         <Header />
          <div className="text-center mb-4 animate-landing animate-fade-in flex justify-center items-center gap-4" style={{ animationDelay: '0.4s' }}>
@@ -687,17 +888,19 @@ const App: React.FC = () => {
              </button>
          </div>
 
-        <div className="flex justify-center flex-wrap gap-2 md:gap-4 my-6">
+        <div className="hidden md:flex justify-center flex-wrap gap-2 md:gap-4 my-6">
           {renderNavButton('find', 'Find Mantra for Problem', 0)}
           {renderNavButton('lookup', 'Lookup Sloka', 1)}
           {renderNavButton('vedic', 'Vedic Remedies', 2)}
           {renderNavButton('mantraBook', 'Mantra Compendium', 3)}
           {renderNavButton('tantraBook', 'Tantric Practices', 4)}
           {renderNavButton('buddhistChants', 'Buddhist Chants', 5)}
-          {renderNavButton('aiChat', 'AI Chat Guide', 6)}
+          {renderNavButton('listen', 'Listen to Chants', 6)}
+          {renderNavButton('aiChat', 'AI Chat Guide', 7)}
+          {renderNavButton('research', 'Research', 8)}
         </div>
 
-        <div className="w-full max-w-xl mx-auto mb-4 flex justify-center items-center gap-4 animate-landing animate-fade-in" style={{ animationDelay: '1.2s' }}>
+        <div className="w-full max-w-2xl mx-auto mb-4 flex justify-center items-center flex-wrap gap-4 animate-landing animate-fade-in" style={{ animationDelay: '1.2s' }}>
             <div>
               <label htmlFor="language-select" className="text-amber-800 font-medium mr-2">Select Language:</label>
               <select 
@@ -715,6 +918,9 @@ const App: React.FC = () => {
               bookmarkedItems={bookmarkedItems}
               language={language}
             />
+            <div className="bg-white/80 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-full shadow-sm border border-amber-300/60" title={`Daily AI Interaction Count. Resets daily.`}>
+                AI Usage: {apiUsage.count}/{apiUsage.limit}
+            </div>
         </div>
         
         {mode === 'find' && (
@@ -769,7 +975,8 @@ const App: React.FC = () => {
                 onExplainRequest={handleExplainRequest}
                 onAnalyzeRequest={handleAnalyzeRequest}
                 language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'lookup' ? initialViewTargetRef.current.id : null}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'lookup' ? initialViewTargetRef.current.id as number : null}
+                onApiUse={handleApiUsageUpdate}
             />
         )}
 
@@ -780,7 +987,8 @@ const App: React.FC = () => {
                 onToggleSelect={handleToggleRemedy}
                 onToggleSectionBookmark={createSectionToggleHandler}
                 language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'vedic' ? initialViewTargetRef.current.id : null}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'vedic' ? initialViewTargetRef.current.id as number : null}
+                onApiUse={handleApiUsageUpdate}
            />
         )}
         
@@ -791,7 +999,8 @@ const App: React.FC = () => {
                 onToggleSelect={handleToggleMantraBookItem}
                 onToggleSectionBookmark={createSectionToggleHandler}
                 language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'mantraBook' ? initialViewTargetRef.current.id : null}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'mantraBook' ? initialViewTargetRef.current.id as number : null}
+                onApiUse={handleApiUsageUpdate}
            />
         )}
 
@@ -802,7 +1011,8 @@ const App: React.FC = () => {
                 onToggleSelect={handleToggleTantraMantra}
                 onToggleSectionBookmark={createSectionToggleHandler}
                 language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'tantraBook' ? initialViewTargetRef.current.id : null}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'tantraBook' ? initialViewTargetRef.current.id as number : null}
+                onApiUse={handleApiUsageUpdate}
            />
         )}
 
@@ -813,15 +1023,67 @@ const App: React.FC = () => {
                 onToggleSelect={handleToggleBuddhistChant}
                 onToggleSectionBookmark={createSectionToggleHandler}
                 language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'buddhistChants' ? initialViewTargetRef.current.id : null}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'buddhistChants' ? initialViewTargetRef.current.id as number : null}
+                onApiUse={handleApiUsageUpdate}
            />
         )}
 
+        {mode === 'listen' && (
+            <AudioLibrary
+                bookmarkedItems={bookmarkedItems}
+                onToggleBookmark={handleToggleAudioBookmark}
+                initialSelectedId={initialViewTargetRef.current?.mode === 'listen' ? initialViewTargetRef.current.id as string : null}
+            />
+        )}
+        
         {mode === 'aiChat' && (
-            <AIChat language={language} />
+            <AIChat language={language} onApiUse={handleApiUsageUpdate} />
+        )}
+
+        {mode === 'research' && (
+            <ResearchSummaries initialLanguage={language} />
         )}
       </main>
       
+      {/* Floating Background Music Player */}
+        <div
+            className={`fixed bottom-5 left-5 z-40 flex items-end gap-2 transition-all duration-300 ease-in-out group ${areFloatingButtonsVisible ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}
+            aria-hidden={!areFloatingButtonsVisible}
+        >
+            <div className="transition-all duration-300 ease-in-out max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-focus-within:max-w-xs group-focus-within:opacity-100 overflow-hidden">
+                <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg p-2 space-y-1 w-48 mb-1">
+                    <p className="text-xs text-center font-semibold text-amber-800 px-2 pb-1">Ambient Sound</p>
+                    {BACKGROUND_MUSIC_TRACKS.map(track => (
+                        <button
+                            key={track.id}
+                            onClick={() => {
+                                setCurrentBgTrack(track);
+                            }}
+                            className={`w-full text-left text-sm px-3 py-1.5 rounded-md transition-colors ${
+                                currentBgTrack.id === track.id
+                                    ? 'bg-amber-200 text-amber-900 font-semibold'
+                                    : 'text-amber-700 hover:bg-amber-100'
+                            }`}
+                        >
+                            {track.name}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <button
+                onClick={toggleBgMusic}
+                className="flex-shrink-0 flex items-center justify-center w-14 h-14 bg-white/70 backdrop-blur-md text-amber-800 rounded-full shadow-lg hover:bg-amber-100 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/80"
+                aria-label={isBgMusicPlaying ? 'Pause background music' : 'Play background music'}
+            >
+                {isBgMusicPlaying ? <PauseIcon /> : <PlayIcon />}
+                {isBgMusicPlaying && (
+                    <div className="absolute inset-0 rounded-full border-2 border-amber-500 animate-ping-slow opacity-75"></div>
+                )}
+            </button>
+        </div>
+
+
       {bookmarkedItems.length > 0 && showBookmarkPanel && (
         <CombinedSelections 
             bookmarkedItems={bookmarkedItems}
@@ -830,6 +1092,7 @@ const App: React.FC = () => {
             onCreateCombinedMantraRequest={handleCreateCombinedMantraRequest}
             onClose={() => setShowBookmarkPanel(false)}
             onNavigateToBookmark={handleNavigateToBookmark}
+            onClearAll={handleClearAllBookmarks}
         />
       )}
 
@@ -844,6 +1107,7 @@ const App: React.FC = () => {
         <BijaMantraExplainer
           slokas={slokasToExplain}
           onClose={handleCloseExplainer}
+          onApiUse={handleApiUsageUpdate}
         />
       )}
       
@@ -852,6 +1116,7 @@ const App: React.FC = () => {
           sloka={slokaToAnalyze}
           language={language}
           onClose={handleCloseAnalysis}
+          onApiUse={handleApiUsageUpdate}
         />
       )}
 
@@ -860,6 +1125,7 @@ const App: React.FC = () => {
             slokas={showCombinedMantraCreator}
             language={language}
             onClose={handleCloseCombinedMantraCreator}
+            onApiUse={handleApiUsageUpdate}
         />
       )}
 
@@ -881,6 +1147,9 @@ const App: React.FC = () => {
             <span>|</span>
             <a href="https://github.com/Ishanoshada/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">GitHub</a>
         </div>
+         <p className="mt-2">
+            Website Source: <a href="https://github.com/Ishanoshada/Soundarya-Lahari-Mantra-Finder/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">GitHub Repository</a>
+        </p>
         <p className="mt-2">&copy; 2025 Divine Guidance Systems</p>
       </footer>
     </div>

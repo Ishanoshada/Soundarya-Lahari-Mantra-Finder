@@ -95,7 +95,8 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
             </h3>
             <div className="overflow-y-auto flex-grow pr-2 space-y-2 max-h-48">
                 {bookmarkedItems.map((item) => (
-                    <div key={`${item.type}-${'id' in item.data ? item.data.id : item.data.slokaNumber}`} className="flex justify-between items-center bg-amber-50/70 rounded-md p-2 text-sm group">
+                    // FIX: Corrected key generation to properly handle the discriminated union type and avoid a 'never' type error.
+                    <div key={`${item.type}-${'slokaNumber' in item.data ? item.data.slokaNumber : item.data.id}`} className="flex justify-between items-center bg-amber-50/70 rounded-md p-2 text-sm group">
                         <button 
                             onClick={() => onNavigateToBookmark(item)}
                             className="flex-1 pr-2 text-left"

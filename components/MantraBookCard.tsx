@@ -1,12 +1,17 @@
 import React, { useRef, useState } from 'react';
 import type { MantraBookItem } from '../types';
 import { captureElementAsImage } from '../services/geminiService';
+import FullScreenWrapper from './FullScreenWrapper';
 
 const CameraIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
+);
+
+const FullscreenEnterIcon = () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5" /></svg>
 );
 
 const LoadingSpinnerIcon = () => (
@@ -52,23 +57,24 @@ interface MantraBookCardProps {
   mantra: MantraBookItem;
   onToggleSelect: (mantra: MantraBookItem) => void;
   isSelected: boolean;
+  isFullScreenView?: boolean;
   bookmarkedSections?: string[];
   highlightedSections?: string[];
   onToggleSectionBookmark?: (sectionTitle: string) => void;
 }
 
-const MantraBookCard: React.FC<MantraBookCardProps> = ({ 
-    mantra, onToggleSelect, isSelected,
-    bookmarkedSections = [], highlightedSections = [], onToggleSectionBookmark 
-}) => {
+const MantraBookCard: React.FC<MantraBookCardProps> = (props) => {
+  const { mantra, onToggleSelect, isSelected, isFullScreenView = false, bookmarkedSections = [], highlightedSections = [], onToggleSectionBookmark } = props;
   const cardRef = useRef<HTMLDivElement>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const handleScreenshot = async () => {
+    const elementToCapture = isFullScreen ? document.querySelector(`#fullscreen-mantrabook-${mantra.id}`) : cardRef.current;
     setIsCapturing(true);
     try {
       const filename = `mantra-book-${mantra.id}-${mantra.title.split(' ')[0].toLowerCase()}.png`;
-      await captureElementAsImage(cardRef.current, filename);
+      await captureElementAsImage(elementToCapture as HTMLElement, filename);
     } catch (error) {
       // The utility function already alerts the user.
     } finally {
@@ -76,18 +82,31 @@ const MantraBookCard: React.FC<MantraBookCardProps> = ({
     }
   };
 
-  const containerClasses = "w-full bg-white/70 backdrop-blur-md rounded-xl shadow-lg p-6 md:p-8 border border-amber-300/50 relative";
+  const containerClasses = isFullScreenView
+    ? "p-6 md:p-8"
+    : "w-full bg-white/70 backdrop-blur-md rounded-xl shadow-lg p-6 md:p-8 border border-amber-300/50 relative";
 
-  return (
-    <div ref={cardRef} className={containerClasses}>
-      <button
-        onClick={handleScreenshot}
-        disabled={isCapturing}
-        className="absolute top-4 right-4 p-2 text-amber-600 bg-white/50 rounded-full hover:bg-amber-100 hover:text-amber-800 transition-colors disabled:opacity-50 z-10"
-        aria-label="Capture screenshot of this mantra"
-      >
-        {isCapturing ? <LoadingSpinnerIcon /> : <CameraIcon />}
-      </button>
+  const CardContent = () => (
+    <div ref={isFullScreenView ? null : cardRef} className={containerClasses}>
+      {!isFullScreenView && (
+        <div className="absolute top-4 right-4 flex gap-2 z-10">
+          <button
+            onClick={() => setIsFullScreen(true)}
+            className="p-2 text-amber-600 bg-white/50 rounded-full hover:bg-amber-100 hover:text-amber-800 transition-colors"
+            aria-label="Enter full screen"
+          >
+            <FullscreenEnterIcon />
+          </button>
+          <button
+            onClick={handleScreenshot}
+            disabled={isCapturing}
+            className="p-2 text-amber-600 bg-white/50 rounded-full hover:bg-amber-100 hover:text-amber-800 transition-colors disabled:opacity-50"
+            aria-label="Capture screenshot of this mantra"
+          >
+            {isCapturing ? <LoadingSpinnerIcon /> : <CameraIcon />}
+          </button>
+        </div>
+      )}
 
       <div className="text-center mb-6">
         <p className="text-amber-700 uppercase tracking-widest text-sm">{mantra.category}</p>
@@ -183,6 +202,19 @@ const MantraBookCard: React.FC<MantraBookCardProps> = ({
             </button>
         </div>
     </div>
+  );
+
+  return (
+    <>
+      <CardContent />
+      {isFullScreen && (
+        <FullScreenWrapper isOpen={isFullScreen} onClose={() => setIsFullScreen(false)} title={`Compendium #${mantra.id}: ${mantra.title}`}>
+          <div id={`fullscreen-mantrabook-${mantra.id}`}>
+            <MantraBookCard {...props} isFullScreenView={true} />
+          </div>
+        </FullScreenWrapper>
+      )}
+    </>
   );
 };
 

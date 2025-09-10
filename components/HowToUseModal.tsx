@@ -202,10 +202,10 @@ const HowToUseModal: React.FC<HowToUseModalProps> = ({ onClose, initialLanguage 
             aria-labelledby="how-to-use-title"
         >
           <div 
-            className="bg-gradient-to-br from-amber-50 to-rose-100 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col p-6 border border-amber-300/50"
+            className="bg-gradient-to-br from-amber-50/80 to-rose-100/80 backdrop-blur-lg rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col p-6 border border-white/30"
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="flex justify-between items-center pb-4 border-b border-amber-200">
+            <header className="flex justify-between items-center pb-4 border-b border-amber-200/50">
                 <h2 id="how-to-use-title" className="text-2xl font-bold text-amber-900 font-playfair">{currentContent.title}</h2>
                 <button 
                     onClick={onClose} 

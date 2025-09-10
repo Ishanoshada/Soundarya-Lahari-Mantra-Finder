@@ -27,7 +27,7 @@ const ScreenshotButton: React.FC = () => {
     <button
       onClick={handleScreenshot}
       disabled={isCapturing}
-      className="flex items-center justify-center px-4 py-2 text-sm font-medium text-amber-800 bg-white/80 rounded-full border border-amber-300/60 shadow-sm hover:bg-amber-100 transition-colors disabled:opacity-50 disabled:cursor-wait"
+      className="flex items-center justify-center px-4 py-2 text-sm font-medium text-amber-800 bg-white/60 backdrop-blur-sm rounded-full border border-white/30 shadow-lg hover:bg-amber-100 transition-colors disabled:opacity-50 disabled:cursor-wait"
       aria-label="Capture screenshot of the full page"
     >
       <CameraIcon />

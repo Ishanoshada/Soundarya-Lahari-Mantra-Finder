@@ -10,6 +10,14 @@ const SendIcon = () => (
     </svg>
 );
 
+const FullscreenEnterIcon = () => (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5" /></svg>
+);
+
+const FullscreenExitIcon = () => (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m7 7l5 5m0 0v-4m0 4h-4M8 20v-4m0 4H4m0 0l5-5" /></svg>
+);
+
 // A simple markdown-like renderer
 const FormattedResponse: React.FC<{ text: string }> = ({ text }) => {
     return (
@@ -39,15 +47,17 @@ const FormattedResponse: React.FC<{ text: string }> = ({ text }) => {
 
 interface AIChatProps {
     language: string;
+    onApiUse: () => void;
 }
 
-const AIChat: React.FC<AIChatProps> = ({ language }) => {
+const AIChat: React.FC<AIChatProps> = ({ language, onApiUse }) => {
     const [messages, setMessages] = useState<ChatMessage[]>([
         { role: 'model', text: 'Welcome. I am Lahari GPT, your spiritual guide. How may I assist you on your path today?' }
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isFullScreen, setIsFullScreen] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -66,6 +76,7 @@ const AIChat: React.FC<AIChatProps> = ({ language }) => {
 
         try {
             const responseText = await getAiChatResponse(userMessage.text, [...messages, userMessage], language);
+            onApiUse();
             const modelMessage: ChatMessage = { role: 'model', text: responseText };
             setMessages(prev => [...prev, modelMessage]);
         } catch (err: any) {
@@ -74,9 +85,25 @@ const AIChat: React.FC<AIChatProps> = ({ language }) => {
             setIsLoading(false);
         }
     };
+    
+    const containerClasses = isFullScreen
+        ? "fixed inset-0 z-[100] flex flex-col bg-amber-50"
+        : "w-full max-w-3xl mx-auto my-6 flex flex-col h-[70vh] bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-amber-300/50 animate-landing animate-fade-in";
+
 
     return (
-        <div className="w-full max-w-3xl mx-auto my-6 flex flex-col h-[70vh] bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-amber-300/50 animate-landing animate-fade-in" style={{ animationDelay: '1.3s' }}>
+        <div className={containerClasses} style={{ animationDelay: '1.3s' }}>
+             <header className="flex-shrink-0 p-4 border-b border-amber-200/50 flex justify-between items-center bg-white/50 backdrop-blur-md">
+                <h3 className="text-xl font-bold text-amber-900">AI Chat Guide</h3>
+                <button
+                    onClick={() => setIsFullScreen(!isFullScreen)}
+                    className="p-2 text-amber-700 rounded-full hover:bg-amber-100/70 transition-colors"
+                    aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
+                >
+                    {isFullScreen ? <FullscreenExitIcon /> : <FullscreenEnterIcon />}
+                </button>
+            </header>
+
             <div className="flex-grow p-6 overflow-y-auto">
                 <div className="space-y-6">
                     {messages.map((msg, index) => (
@@ -109,7 +136,7 @@ const AIChat: React.FC<AIChatProps> = ({ language }) => {
                 </div>
             </div>
              {error && <div className="p-4"><ErrorMessage message={error} /></div>}
-            <div className="p-4 border-t border-amber-200">
+            <div className="p-4 border-t border-amber-200 bg-white/50 backdrop-blur-md">
                 <form onSubmit={handleSubmit} className="flex items-center gap-4">
                     <input
                         type="text"

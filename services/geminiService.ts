@@ -6,6 +6,133 @@ import { MANTRA_BOOK_DATA } from "../constants/mantraBookData";
 import { BUDDHIST_CHANTS_DATA } from "../constants/buddhistChantsData";
 import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, MantraBookItem, ChatMessage, MantraIdentifier, CombinedMantraResponse, BuddhistChant } from "../types";
 
+// --- API Rate Limiting ---
+export const API_LIMIT = 7;
+const USAGE_KEY = 'geminiApiUsage';
+const SECRET_KEY = "PathToWisdomRequiresPatience";
+
+// Obfuscated keys for localStorage to make direct editing less obvious
+const V_KEY = 'd1'; 
+const R_KEY = 'd2'; 
+const S_KEY = 's1'; 
+const C_KEY = 'c';
+
+// Transformation for the shadow count to verify integrity
+const transformCount = (count: number): number => (count * 17) + 23;
+
+interface StoredApiUsage {
+    [V_KEY]: string; // base64 encoded count
+    [R_KEY]: string; // base64 encoded resetTime
+    [S_KEY]: string; // base64 encoded shadow count
+    [C_KEY]: string; // base64 encoded checksum
+}
+
+// Safely decodes a base64 string to a number, returning null on failure
+const safeDecode = (str: string): number | null => {
+    try {
+        const decoded = atob(str);
+        const num = parseInt(decoded, 10);
+        return isNaN(num) ? null : num;
+    } catch (e) {
+        return null;
+    }
+};
+
+// Reads and validates the usage data from localStorage
+const readUsage = (): { count: number, resetTime: number } | { tampered: true } => {
+    const now = Date.now();
+    try {
+        const storedItem = localStorage.getItem(USAGE_KEY);
+        if (!storedItem) {
+            return { count: 0, resetTime: now + 24 * 60 * 60 * 1000 };
+        }
+        
+        const parsed: StoredApiUsage = JSON.parse(storedItem);
+
+        if (!parsed[V_KEY] || !parsed[R_KEY] || !parsed[S_KEY] || !parsed[C_KEY]) {
+            localStorage.removeItem(USAGE_KEY); // Clean up invalid/old format
+            return { count: 0, resetTime: now + 24 * 60 * 60 * 1000 };
+        }
+
+        const count = safeDecode(parsed[V_KEY]);
+        const resetTime = safeDecode(parsed[R_KEY]);
+        const shadow = safeDecode(parsed[S_KEY]);
+        
+        if (count === null || resetTime === null || shadow === null) {
+            return { tampered: true };
+        }
+        
+        // Integrity check 1: Shadow count must match the transformed real count
+        if (transformCount(count) !== shadow) {
+            return { tampered: true };
+        }
+
+        // Integrity check 2: Checksum must match the expected value
+        const expectedChecksum = btoa(`${parsed[V_KEY]}:${parsed[R_KEY]}:${parsed[S_KEY]}:${SECRET_KEY}`);
+        if (parsed[C_KEY] !== expectedChecksum) {
+            return { tampered: true };
+        }
+        
+        if (now > resetTime) {
+            return { count: 0, resetTime: now + 24 * 60 * 60 * 1000 };
+        }
+        
+        return { count, resetTime };
+    } catch (e) {
+        // Any error during parsing is treated as tampering
+        return { tampered: true };
+    }
+};
+
+export const getApiUsage = (): { count: number; limit: number } => {
+    const usage = readUsage();
+    // FIX: Use a direct property check for 'count' to safely narrow the union type.
+    // This resolves the issue where TypeScript fails to infer the type after the previous check.
+    if (!('count' in usage)) {
+        return { count: API_LIMIT, limit: API_LIMIT };
+    }
+    return { count: usage.count, limit: API_LIMIT };
+};
+
+const checkAndRecordApiUsage = (): void => {
+    const usage = readUsage();
+
+    // FIX: Use a direct property check for '!('count' in usage)' to safely identify the 'tampered' case.
+    // This allows TypeScript to correctly narrow the type of 'usage' for subsequent property access.
+    if (!('count' in usage)) {
+        const now = Date.now();
+        const newResetTime = now + 24 * 60 * 60 * 1000;
+        const lockCount = API_LIMIT;
+        
+        const v = btoa(String(lockCount));
+        const r = btoa(String(newResetTime));
+        const s = btoa(String(transformCount(lockCount)));
+        const c = btoa(`${v}:${r}:${s}:${SECRET_KEY}`);
+        
+        localStorage.setItem(USAGE_KEY, JSON.stringify({ [V_KEY]: v, [R_KEY]: r, [S_KEY]: s, [C_KEY]: c }));
+
+        throw new Error("The flow of divine energy is based on trust and integrity. Attempting to manipulate the natural order disrupts this connection. True progress comes not from circumvention, but from patience and acceptance. Your access is temporarily paused for reflection.");
+    }
+    
+    let { count, resetTime } = usage;
+
+    if (count >= API_LIMIT) {
+        const resetDate = new Date(resetTime).toLocaleString();
+        throw new Error(`You have reached your daily limit of ${API_LIMIT} AI interactions. The path to wisdom requires patience. Your connection will be restored around ${resetDate}. Embrace the pause to reflect on the teachings you have already received.`);
+    }
+
+    count++;
+    
+    const v = btoa(String(count));
+    const r = btoa(String(resetTime));
+    const s = btoa(String(transformCount(count)));
+    const c = btoa(`${v}:${r}:${s}:${SECRET_KEY}`);
+
+    const dataToWrite: StoredApiUsage = { [V_KEY]: v, [R_KEY]: r, [S_KEY]: s, [C_KEY]: c };
+    localStorage.setItem(USAGE_KEY, JSON.stringify(dataToWrite));
+};
+
+
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 const identifierSchema = {
@@ -23,6 +150,7 @@ const combinedIdentifierSchema = {
 };
 
 export const findMantraForProblem = async (problem: string, combine: boolean): Promise<MantraIdentifier[]> => {
+  checkAndRecordApiUsage();
   // To make the prompt more efficient, we only send the fields necessary for matching.
   const slokaDataString = JSON.stringify(SLOKA_DATA.map(({slokaNumber, title, beneficialResults, literalResults}) => ({slokaNumber, title, beneficialResults, literalResults})), null, 2);
   const remediesDataString = JSON.stringify(VEDIC_REMEDIES_DATA.map(({id, title, purpose}) => ({id, title, purpose})), null, 2);
@@ -125,6 +253,7 @@ const explainerSchema = {
 };
 
 export const explainBijaMantras = async (rawBijaMantras: string[], language: string): Promise<BijaMantraApiResponse> => {
+    checkAndRecordApiUsage();
     const dataString = JSON.stringify(SLOKA_DATA, null, 2);
 
     const uniqueMantras = Array.from(
@@ -182,9 +311,13 @@ Provide the entire response in ${language}. Do not add any text before or after 
 };
 
 
-export const translateSlokas = async (slokas: Sloka[], language: string): Promise<Sloka[]> => {
+export const translateSlokas = async (slokas: Sloka[], language: string, skipLimitCheck = false): Promise<Sloka[]> => {
     if (language === 'English' || slokas.length === 0) {
         return slokas;
+    }
+    
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
     }
 
     const slokasToTranslate = slokas.map(s => ({ 
@@ -251,6 +384,7 @@ export const translateSlokas = async (slokas: Sloka[], language: string): Promis
 
 
 export const analyzeSlokas = async (slokas: Sloka[], language: string): Promise<string> => {
+    checkAndRecordApiUsage();
     const slokaDetails = JSON.stringify(slokas.map(({ slokaNumber, title, bijaMantra, beneficialResults, literalResults }) => ({
         slokaNumber, title, bijaMantra, beneficialResults, literalResults
     })), null, 2);
@@ -287,9 +421,13 @@ Return ONLY the structured text analysis. Do not include any introductory or con
     }
 };
 
-export const translateVedicRemedies = async (remedies: VedicRemedy[], language: string): Promise<VedicRemedy[]> => {
+export const translateVedicRemedies = async (remedies: VedicRemedy[], language: string, skipLimitCheck = false): Promise<VedicRemedy[]> => {
     if (language === 'English' || remedies.length === 0) {
         return remedies;
+    }
+    
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
     }
 
     const remediesToTranslate = remedies.map(r => ({
@@ -351,9 +489,13 @@ export const translateVedicRemedies = async (remedies: VedicRemedy[], language: 
     }
 };
 
-export const translateTantraBookMantras = async (mantras: TantraBookMantra[], language: string): Promise<TantraBookMantra[]> => {
+export const translateTantraBookMantras = async (mantras: TantraBookMantra[], language: string, skipLimitCheck = false): Promise<TantraBookMantra[]> => {
     if (language === 'English' || mantras.length === 0) {
         return mantras;
+    }
+
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
     }
 
     const mantrasToTranslate = mantras.map(m => ({
@@ -417,9 +559,13 @@ export const translateTantraBookMantras = async (mantras: TantraBookMantra[], la
     }
 };
 
-export const translateMantraBookItems = async (items: MantraBookItem[], language: string): Promise<MantraBookItem[]> => {
+export const translateMantraBookItems = async (items: MantraBookItem[], language: string, skipLimitCheck = false): Promise<MantraBookItem[]> => {
     if (language === 'English' || items.length === 0) {
         return items;
+    }
+
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
     }
 
     const itemsToTranslate = items.map(m => ({
@@ -481,9 +627,13 @@ export const translateMantraBookItems = async (items: MantraBookItem[], language
     }
 };
 
-export const translateBuddhistChants = async (chants: BuddhistChant[], language: string): Promise<BuddhistChant[]> => {
+export const translateBuddhistChants = async (chants: BuddhistChant[], language: string, skipLimitCheck = false): Promise<BuddhistChant[]> => {
     if (language === 'English' || chants.length === 0) {
         return chants;
+    }
+
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
     }
 
     const chantsToTranslate = chants.map(c => ({
@@ -558,16 +708,18 @@ export const translateSearchResults = async (results: SearchResult[], language: 
         return results;
     }
 
+    checkAndRecordApiUsage(); // Count this bundle of translations as ONE usage.
+
     const slokasToTranslate = results.filter((r): r is { type: 'sloka'; data: Sloka } => r.type === 'sloka').map(r => r.data);
     const remediesToTranslate = results.filter((r): r is { type: 'remedy'; data: VedicRemedy } => r.type === 'remedy').map(r => r.data);
     const mantraBookToTranslate = results.filter((r): r is { type: 'mantraBook'; data: MantraBookItem } => r.type === 'mantraBook').map(r => r.data);
     const buddhistChantsToTranslate = results.filter((r): r is { type: 'buddhistChant'; data: BuddhistChant } => r.type === 'buddhistChant').map(r => r.data);
 
     const [translatedSlokas, translatedRemedies, translatedMantraBook, translatedBuddhistChants] = await Promise.all([
-        slokasToTranslate.length > 0 ? translateSlokas(slokasToTranslate, language) : Promise.resolve([]),
-        remediesToTranslate.length > 0 ? translateVedicRemedies(remediesToTranslate, language) : Promise.resolve([]),
-        mantraBookToTranslate.length > 0 ? translateMantraBookItems(mantraBookToTranslate, language) : Promise.resolve([]),
-        buddhistChantsToTranslate.length > 0 ? translateBuddhistChants(buddhistChantsToTranslate, language) : Promise.resolve([]),
+        slokasToTranslate.length > 0 ? translateSlokas(slokasToTranslate, language, true) : Promise.resolve([]),
+        remediesToTranslate.length > 0 ? translateVedicRemedies(remediesToTranslate, language, true) : Promise.resolve([]),
+        mantraBookToTranslate.length > 0 ? translateMantraBookItems(mantraBookToTranslate, language, true) : Promise.resolve([]),
+        buddhistChantsToTranslate.length > 0 ? translateBuddhistChants(buddhistChantsToTranslate, language, true) : Promise.resolve([]),
     ]);
 
     return results.map(res => {
@@ -588,6 +740,7 @@ export const translateSearchResults = async (results: SearchResult[], language: 
 };
 
 export const getAiChatResponse = async (message: string, history: ChatMessage[], language: string): Promise<string> => {
+    checkAndRecordApiUsage();
     const lowercasedMessage = message.toLowerCase().replace(/[?.,]/g, '');
 
     // Keywords to detect general questions
@@ -730,6 +883,7 @@ const combinedMantraSchema = {
 };
 
 export const createCombinedMantra = async (bijaMantras: string[], slokas: Sloka[], language: string): Promise<CombinedMantraResponse> => {
+    checkAndRecordApiUsage();
     const uniqueMantras = Array.from(
         new Set(
           bijaMantras

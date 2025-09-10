@@ -13,9 +13,10 @@ interface MantraBookProps {
     onToggleSectionBookmark: (itemData: MantraBookItem, itemType: 'mantraBook') => (sectionTitle: string) => void;
     language: string;
     initialSelectedId: number | null;
+    onApiUse: () => void;
 }
 
-const MantraBook: React.FC<MantraBookProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId }) => {
+const MantraBook: React.FC<MantraBookProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId, onApiUse }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedMantraId, setSelectedMantraId] = useState<number | null>(initialSelectedId || MANTRA_BOOK_DATA[0]?.id || null);
     
@@ -115,6 +116,7 @@ const MantraBook: React.FC<MantraBookProps> = ({ onToggleSelect, bookmarkedItems
                 if (translated && translated.length > 0) {
                     setTranslationCache(prev => ({ ...prev, [cacheKey]: translated[0] }));
                     setMantraForDisplay(translated[0]);
+                    onApiUse();
                 } else {
                      throw new Error("Translation returned empty result.");
                 }
@@ -186,7 +188,8 @@ const MantraBook: React.FC<MantraBookProps> = ({ onToggleSelect, bookmarkedItems
                             {(() => {
                                 const bookmarkedItem = bookmarkedItems.find(i => i.type === 'mantraBook' && i.data.id === mantraForDisplay.id);
                                 const isSelected = !!bookmarkedItem;
-                                const bookmarkedSections = bookmarkedItem?.sections || [];
+                                // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
+                                const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
                                 const highlightKey = `mantraBook_${mantraForDisplay.id}`;
                                 return (
                                     <MantraBookCard 

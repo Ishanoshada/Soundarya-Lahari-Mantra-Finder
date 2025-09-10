@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { BookmarkedItem, Sloka, VedicRemedy, TantraBookMantra, MantraBookItem, BuddhistChant } from '../types';
+import type { BookmarkedItem, Sloka, VedicRemedy, TantraBookMantra, MantraBookItem, BuddhistChant, AudioTrack } from '../types';
 import CopyableLink from './CopyableLink';
 
 const BookmarkIcon = () => (
@@ -40,6 +40,7 @@ const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItems, lang
         const tantraItems = bookmarkedItems.filter((i): i is { type: 'tantra'; data: TantraBookMantra; sections?: string[] } => i.type === 'tantra');
         const mantraBookItems = bookmarkedItems.filter((i): i is { type: 'mantraBook'; data: MantraBookItem; sections?: string[] } => i.type === 'mantraBook');
         const buddhistChantItems = bookmarkedItems.filter((i): i is { type: 'buddhistChant'; data: BuddhistChant; sections?: string[] } => i.type === 'buddhistChant');
+        const audioItems = bookmarkedItems.filter((i): i is { type: 'audio'; data: AudioTrack } => i.type === 'audio');
 
         if (slokaItems.length > 0) {
             params.set('slokas', slokaItems.map(i => i.data.slokaNumber).join(','));
@@ -80,6 +81,9 @@ const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItems, lang
                     params.set(`bc${item.data.id}_sections`, item.sections.map(encodeURIComponent).join(','));
                 }
             });
+        }
+        if (audioItems.length > 0) {
+            params.set('audio', audioItems.map(i => i.data.id).join(','));
         }
 
 

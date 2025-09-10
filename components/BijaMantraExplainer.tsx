@@ -7,6 +7,7 @@ import ErrorMessage from './ErrorMessage';
 interface BijaMantraExplainerProps {
   slokas: Sloka[];
   onClose: () => void;
+  onApiUse: () => void;
 }
 
 const LANGUAGES = ["English", "Sinhala", "Tamil", "Hindi", "Malayalam"];
@@ -32,7 +33,7 @@ const LoadingSpinnerIcon = () => (
 );
 
 
-const BijaMantraExplainer: React.FC<BijaMantraExplainerProps> = ({ slokas, onClose }) => {
+const BijaMantraExplainer: React.FC<BijaMantraExplainerProps> = ({ slokas, onClose, onApiUse }) => {
   const [explanation, setExplanation] = useState<BijaMantraApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +54,7 @@ const BijaMantraExplainer: React.FC<BijaMantraExplainerProps> = ({ slokas, onClo
       try {
         const result = await explainBijaMantras(bijaMantras, language);
         setExplanation(result);
+        onApiUse();
       } catch (err: any) {
         setError(err.message || "An unknown error occurred while fetching the explanation.");
       } finally {
@@ -61,7 +63,7 @@ const BijaMantraExplainer: React.FC<BijaMantraExplainerProps> = ({ slokas, onClo
     };
 
     fetchExplanation();
-  }, [bijaMantras, language]);
+  }, [bijaMantras, language, onApiUse]);
 
   const handleScreenshot = async () => {
     setIsCapturing(true);
@@ -84,10 +86,10 @@ const BijaMantraExplainer: React.FC<BijaMantraExplainerProps> = ({ slokas, onClo
     >
       <div 
         ref={explainerRef}
-        className="bg-gradient-to-br from-amber-50 to-rose-100 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col p-6 border border-amber-300/50"
+        className="bg-gradient-to-br from-amber-50/80 to-rose-100/80 backdrop-blur-lg rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col p-6 border border-white/30"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex justify-between items-center pb-4 border-b border-amber-200">
+        <header className="flex justify-between items-center pb-4 border-b border-amber-200/50">
             <h2 id="explainer-title" className="text-2xl font-bold text-amber-900">Understanding Bija Mantras</h2>
             <div className="flex items-center gap-4">
                 <select 
@@ -119,7 +121,7 @@ const BijaMantraExplainer: React.FC<BijaMantraExplainerProps> = ({ slokas, onClo
         <div className="mt-4 flex-grow overflow-y-auto pr-2">
             {isLoading && <LoadingSpinner />}
             {error && <ErrorMessage message={error} />}
-            {explanation && (
+            {explanation && !isLoading && (
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead className="sticky top-0 bg-amber-100/80 backdrop-blur-md">

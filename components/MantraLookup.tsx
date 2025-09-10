@@ -16,11 +16,12 @@ interface MantraLookupProps {
   onAnalyzeRequest: (sloka: Sloka) => void;
   language: string;
   initialSelectedId: number | null;
+  onApiUse: () => void;
 }
 
 const MantraLookup: React.FC<MantraLookupProps> = ({ 
     onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, 
-    onExplainRequest, onAnalyzeRequest, language, initialSelectedId 
+    onExplainRequest, onAnalyzeRequest, language, initialSelectedId, onApiUse
 }) => {
   const [query, setQuery] = useState('');
   const [untranslatedResults, setUntranslatedResults] = useState<Sloka[] | null>(null);
@@ -131,6 +132,7 @@ const MantraLookup: React.FC<MantraLookupProps> = ({
       try {
         const translated = await translateSlokas(untranslatedResults, language);
         setDisplayResults(translated);
+        onApiUse();
       } catch (err: any) {
         setError(err.message);
         setDisplayResults(untranslatedResults);
@@ -140,7 +142,7 @@ const MantraLookup: React.FC<MantraLookupProps> = ({
     };
 
     translateResults();
-  }, [untranslatedResults, language]);
+  }, [untranslatedResults, language, onApiUse]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,6 +160,7 @@ const MantraLookup: React.FC<MantraLookupProps> = ({
     try {
       const result = await analyzeSlokas(displayResults, language);
       setAnalysisResult(result);
+      onApiUse();
     } catch (err: any) {
       setAnalysisError(err.message || "An error occurred while generating the analysis.");
     } finally {
@@ -210,7 +213,8 @@ const MantraLookup: React.FC<MantraLookupProps> = ({
         {displayResults && !isLoading && displayResults.map(mantra => {
           const bookmarkedItem = bookmarkedItems.find(i => i.type === 'sloka' && i.data.slokaNumber === mantra.slokaNumber);
           const isSelected = !!bookmarkedItem;
-          const bookmarkedSections = bookmarkedItem?.sections || [];
+          // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
+          const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
           const highlightKey = `sloka_${mantra.slokaNumber}`;
 
           return (

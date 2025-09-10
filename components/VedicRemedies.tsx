@@ -1,13 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { VEDIC_REMEDIES_DATA } from '../constants/remediesData';
 import RemedyCard from './RemedyCard';
-// FIX: Import BookmarkedItem to use in props.
 import type { VedicRemedy, BookmarkedItem } from '../types';
 import { translateVedicRemedies } from '../services/geminiService';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 
-// FIX: Update props to align with App.tsx and handle bookmarking correctly.
 interface VedicRemediesProps {
     bookmarkedItems: BookmarkedItem[];
     highlightedSections: Record<string, string[]>;
@@ -15,9 +13,10 @@ interface VedicRemediesProps {
     onToggleSectionBookmark: (itemData: VedicRemedy, itemType: 'remedy') => (sectionTitle: string) => void;
     language: string;
     initialSelectedId: number | null;
+    onApiUse: () => void;
 }
 
-const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId }) => {
+const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId, onApiUse }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRemedyId, setSelectedRemedyId] = useState<number | null>(initialSelectedId || VEDIC_REMEDIES_DATA[0]?.id || null);
     
@@ -105,6 +104,7 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
                 if (translated && translated.length > 0) {
                     setTranslationCache(prev => ({ ...prev, [cacheKey]: translated[0] }));
                     setRemedyForDisplay(translated[0]);
+                    onApiUse();
                 } else {
                     throw new Error("Translation returned empty result.");
                 }
@@ -124,7 +124,7 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
         <div className="w-full max-w-6xl mx-auto my-6 animate-landing animate-fade-in" style={{ animationDelay: '1.3s' }}>
             <div className="text-center mb-4">
                 <h3 className="text-3xl font-bold text-amber-900">Vedic Remedies</h3>
-                <p className="text-amber-700 mt-1">
+                <p className="text-amber-800 mt-1">
                     Practices from "Infallible Vedic Remedies" by Swami Shantananda Puri
                 </p>
             </div>
@@ -143,20 +143,20 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search remedies by purpose or title..."
-                    className="w-full px-5 py-3 text-lg text-amber-900 placeholder-amber-600/70 bg-white/80 backdrop-blur-sm rounded-full shadow-md border border-amber-300/60 focus:outline-none focus:ring-2 focus:ring-amber-500 mt-4"
+                    className="w-full px-5 py-3 text-lg text-amber-900 placeholder-amber-700/70 bg-white/60 backdrop-blur-sm rounded-full shadow-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-amber-500 mt-4"
                     aria-label="Search Vedic Remedies"
                 />
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
-                <div className="md:col-span-1 bg-white/60 p-4 rounded-xl border border-amber-300/50 shadow-lg">
+                <div className="md:col-span-1 bg-white/60 backdrop-blur-lg p-4 rounded-2xl border border-white/30 shadow-xl">
                     <h4 className="text-lg font-bold text-amber-900 mb-3 text-center">Remedy List (English)</h4>
                     <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-2">
                         {filteredRemedies.map(remedy => (
                             <button
                                 key={remedy.id}
                                 onClick={() => setSelectedRemedyId(remedy.id)}
-                                className={`w-full text-left p-3 rounded-lg transition-colors text-amber-800 text-sm ${selectedRemedyId === remedy.id ? 'bg-amber-200 font-bold' : 'hover:bg-amber-100'}`}
+                                className={`w-full text-left p-3 rounded-lg transition-colors text-amber-900 font-medium text-sm ${selectedRemedyId === remedy.id ? 'bg-amber-200 shadow-inner' : 'hover:bg-amber-100/70'}`}
                             >
                                 #{remedy.id}: {remedy.title}
                             </button>
@@ -171,7 +171,8 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
                           {(() => {
                               const bookmarkedItem = bookmarkedItems.find(i => i.type === 'remedy' && i.data.id === remedyForDisplay.id);
                               const isSelected = !!bookmarkedItem;
-                              const bookmarkedSections = bookmarkedItem?.sections || [];
+                              // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
+                              const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
                               const highlightKey = `remedy_${remedyForDisplay.id}`;
                               return (
                                   <RemedyCard 

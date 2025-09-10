@@ -13,9 +13,10 @@ interface BuddhistChantsProps {
     onToggleSectionBookmark: (itemData: BuddhistChant, itemType: 'buddhistChant') => (sectionTitle: string) => void;
     language: string;
     initialSelectedId: number | null;
+    onApiUse: () => void;
 }
 
-const BuddhistChants: React.FC<BuddhistChantsProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId }) => {
+const BuddhistChants: React.FC<BuddhistChantsProps> = ({ onToggleSelect, bookmarkedItems, highlightedSections, onToggleSectionBookmark, language, initialSelectedId, onApiUse }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedChantId, setSelectedChantId] = useState<number | null>(initialSelectedId || BUDDHIST_CHANTS_DATA[0]?.id || null);
     
@@ -111,6 +112,7 @@ const BuddhistChants: React.FC<BuddhistChantsProps> = ({ onToggleSelect, bookmar
                 if (translated && translated.length > 0) {
                     setTranslationCache(prev => ({ ...prev, [cacheKey]: translated[0] }));
                     setChantForDisplay(translated[0]);
+                    onApiUse();
                 } else {
                      throw new Error("Translation returned empty result.");
                 }
@@ -174,7 +176,8 @@ const BuddhistChants: React.FC<BuddhistChantsProps> = ({ onToggleSelect, bookmar
                             {(() => {
                                 const bookmarkedItem = bookmarkedItems.find(i => i.type === 'buddhistChant' && i.data.id === chantForDisplay.id);
                                 const isSelected = !!bookmarkedItem;
-                                const bookmarkedSections = bookmarkedItem?.sections || [];
+                                // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
+                                const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
                                 const highlightKey = `buddhistChant_${chantForDisplay.id}`;
                                 return (
                                     <BuddhistChantCard 

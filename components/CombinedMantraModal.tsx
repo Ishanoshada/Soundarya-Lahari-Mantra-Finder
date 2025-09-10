@@ -36,9 +36,10 @@ interface CombinedMantraModalProps {
     slokas: Sloka[];
     language: string;
     onClose: () => void;
+    onApiUse: () => void;
 }
 
-const CombinedMantraModal: React.FC<CombinedMantraModalProps> = ({ slokas, language, onClose }) => {
+const CombinedMantraModal: React.FC<CombinedMantraModalProps> = ({ slokas, language, onClose, onApiUse }) => {
     const [result, setResult] = useState<CombinedMantraResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -54,6 +55,7 @@ const CombinedMantraModal: React.FC<CombinedMantraModalProps> = ({ slokas, langu
                 const bijaMantras = slokas.map(s => s.bijaMantra);
                 const response = await createCombinedMantra(bijaMantras, slokas, language);
                 setResult(response);
+                onApiUse();
             } catch (err: any) {
                 setError(err.message || 'An unknown error occurred while creating the mantra.');
             } finally {
@@ -61,7 +63,7 @@ const CombinedMantraModal: React.FC<CombinedMantraModalProps> = ({ slokas, langu
             }
         };
         fetchCombinedMantra();
-    }, [slokas, language]);
+    }, [slokas, language, onApiUse]);
     
     const handleScreenshot = async () => {
         setIsCapturing(true);
@@ -85,10 +87,10 @@ const CombinedMantraModal: React.FC<CombinedMantraModalProps> = ({ slokas, langu
         >
             <div
                 ref={modalRef}
-                className="bg-gradient-to-br from-amber-50 to-rose-100 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col p-6 border border-amber-300/50"
+                className="bg-gradient-to-br from-amber-50/80 to-rose-100/80 backdrop-blur-lg rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col p-6 border border-white/30"
                 onClick={(e) => e.stopPropagation()}
             >
-                <header className="flex justify-between items-center pb-4 border-b border-amber-200">
+                <header className="flex justify-between items-center pb-4 border-b border-amber-200/50">
                     <h2 id="combined-mantra-title" className="text-2xl font-bold text-amber-900">AI-Generated Combined Mantra</h2>
                     <div className="flex items-center gap-2">
                         <button

@@ -15,9 +15,10 @@ interface SlokaAnalysisModalProps {
     sloka: Sloka;
     language: string;
     onClose: () => void;
+    onApiUse: () => void;
 }
 
-const SlokaAnalysisModal: React.FC<SlokaAnalysisModalProps> = ({ sloka, language, onClose }) => {
+const SlokaAnalysisModal: React.FC<SlokaAnalysisModalProps> = ({ sloka, language, onClose, onApiUse }) => {
     const [analysis, setAnalysis] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -30,6 +31,7 @@ const SlokaAnalysisModal: React.FC<SlokaAnalysisModalProps> = ({ sloka, language
             try {
                 const result = await analyzeSlokas([sloka], language);
                 setAnalysis(result);
+                onApiUse();
             } catch (err: any) {
                 setError(err.message || 'An unknown error occurred while analyzing the sloka.');
             } finally {
@@ -37,7 +39,7 @@ const SlokaAnalysisModal: React.FC<SlokaAnalysisModalProps> = ({ sloka, language
             }
         };
         fetchAnalysis();
-    }, [sloka, language]);
+    }, [sloka, language, onApiUse]);
 
     return (
         <div
@@ -48,10 +50,10 @@ const SlokaAnalysisModal: React.FC<SlokaAnalysisModalProps> = ({ sloka, language
             aria-labelledby="analysis-title"
         >
             <div
-                className="bg-gradient-to-br from-amber-50 to-rose-100 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col p-6 border border-amber-300/50"
+                className="bg-gradient-to-br from-amber-50/80 to-rose-100/80 backdrop-blur-lg rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col p-6 border border-white/30"
                 onClick={(e) => e.stopPropagation()}
             >
-                <header className="flex justify-between items-center pb-4 border-b border-amber-200">
+                <header className="flex justify-between items-center pb-4 border-b border-amber-200/50">
                     <h2 id="analysis-title" className="text-2xl font-bold text-amber-900">Deeper Insight: Sloka #{sloka.slokaNumber}</h2>
                     <button
                         onClick={onClose}

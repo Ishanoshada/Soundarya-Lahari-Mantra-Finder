@@ -1,5 +1,4 @@
 
-
 export interface Sloka {
   slokaNumber: number;
   title: string;
@@ -75,10 +74,17 @@ export interface BuddhistChant {
   notes?: string[];
 }
 
+export interface AudioTrack {
+    id: 'lahari' | 'pirith';
+    title: string;
+    subtitle: string;
+    audioSrc: string;
+}
 
-export interface MantraIdentifier {
-    source: 'Soundarya Lahari' | 'Vedic Remedies' | 'Mantra Book';
-    identifier: number;
+export interface BackgroundMusicTrack {
+  id: string;
+  name: string;
+  src: string;
 }
 
 export type SearchResult = 
@@ -86,6 +92,12 @@ export type SearchResult =
   | { type: 'remedy'; data: VedicRemedy }
   | { type: 'mantraBook'; data: MantraBookItem }
   | { type: 'buddhistChant'; data: BuddhistChant };
+
+// FIX: Add the missing MantraIdentifier type to fix an import error.
+export interface MantraIdentifier {
+  source: 'Soundarya Lahari' | 'Vedic Remedies' | 'Mantra Book' | 'Buddhist Chants';
+  identifier: number;
+}
 
 export interface ChatMessage {
   role: 'user' | 'model';
@@ -97,7 +109,8 @@ export type BookmarkedItem =
   | { type: 'remedy'; data: VedicRemedy; sections?: string[] }
   | { type: 'tantra'; data: TantraBookMantra; sections?: string[] }
   | { type: 'mantraBook'; data: MantraBookItem; sections?: string[] }
-  | { type: 'buddhistChant'; data: BuddhistChant; sections?: string[] };
+  | { type: 'buddhistChant'; data: BuddhistChant; sections?: string[] }
+  | { type: 'audio'; data: AudioTrack };
 
 export interface CombinedMantraResponse {
     newMantra: string;
@@ -105,4 +118,29 @@ export interface CombinedMantraResponse {
     corePurpose: string;
     synergisticBenefits: string;
     chantingGuidance: string;
+}
+
+// Type for the structured content of a research summary
+export type ResearchSummaryContentType =
+  | { type: 'paragraphs'; content: string[] }
+  | { type: 'list'; content: string[] }
+  | { type: 'table'; headers: string[]; rows: string[][] };
+
+export interface ResearchSummarySection {
+  heading: string;
+  content: ResearchSummaryContentType;
+}
+
+export interface ResearchSummary {
+  id: number;
+  title: string;
+  authors: string;
+  year: string;
+  source: string;
+  sourceUrl: string;
+  doi?: string;
+  citations?: string;
+  lastUpdated?: string;
+  affiliation?: string;
+  summarySections: ResearchSummarySection[];
 }
