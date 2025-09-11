@@ -6,7 +6,7 @@ import { MANTRA_BOOK_DATA } from "../constants/mantraBookData";
 import { BUDDHIST_CHANTS_DATA } from "../constants/buddhistChantsData";
 import { CATHOLIC_PRAYERS_DATA } from "../constants/catholicPrayersData";
 import { MEDITATION_GUIDES } from "../constants/meditationData";
-import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, MantraBookItem, ChatMessage, MantraIdentifier, CombinedMantraResponse, BuddhistChant, CatholicPrayer, MeditationGuideData } from "../types";
+import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, MantraBookItem, ChatMessage, MantraIdentifier, CombinedMantraResponse, BuddhistChant, CatholicPrayer, MeditationGuideData, OccultScienceChapter } from "../types";
 
 // --- API Rate Limiting ---
 export const API_LIMIT = 7;
@@ -884,6 +884,96 @@ export const translateMeditationGuides = async (guides: MeditationGuideData[], l
     } catch (error) {
         console.error("Error calling Gemini API for meditation guide translation:", error);
         throw new Error(`Failed to translate the meditation guide into ${language}.`);
+    }
+};
+
+export const translateOccultChapters = async (chapters: OccultScienceChapter[], language: string, skipLimitCheck = false): Promise<OccultScienceChapter[]> => {
+    if (language === 'English' || chapters.length === 0) {
+        return chapters;
+    }
+
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
+    }
+
+    // Don't send ID to AI
+    const chaptersToTranslate = chapters.map(({ id, ...rest }) => rest);
+
+    const prompt = `You are an expert multilingual translator specializing in spiritual and esoteric texts.
+    Your task is to translate the text content of the provided JSON object(s) into ${language}.
+    
+    You must translate the values for 'title' and all string content within the 'content' array. For items within 'content' that are objects (like 'list', 'table', 'subheading'), you must translate the text inside them ('items', 'headers', 'rows', 'text'). Do not translate numbers in table rows.
+    
+    Preserve the structure of the JSON objects, including the 'type' keys. Return ONLY the final translated JSON array. Do not include any other text or explanation.
+
+    JSON to Translate:
+    ${JSON.stringify(chaptersToTranslate, null, 2)}
+    `;
+
+    const translationSchema = {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                title: { type: Type.STRING },
+                content: {
+                    type: Type.ARRAY,
+                    items: {
+                        oneOf: [
+                            { type: Type.STRING },
+                            {
+                                type: Type.OBJECT,
+                                properties: {
+                                    type: { type: Type.STRING, enum: ['list'] },
+                                    items: { type: Type.ARRAY, items: { type: Type.STRING } }
+                                },
+                                required: ['type', 'items']
+                            },
+                            {
+                                type: Type.OBJECT,
+                                properties: {
+                                    type: { type: Type.STRING, enum: ['table'] },
+                                    headers: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                    rows: { type: Type.ARRAY, items: { type: Type.ARRAY, items: { oneOf: [{ type: Type.STRING }, { type: Type.NUMBER }] } } }
+                                },
+                                required: ['type', 'headers', 'rows']
+                            },
+                            {
+                                type: Type.OBJECT,
+                                properties: {
+                                    type: { type: Type.STRING, enum: ['subheading'] },
+                                    text: { type: Type.STRING }
+                                },
+                                required: ['type', 'text']
+                            }
+                        ]
+                    }
+                }
+            },
+            required: ['title', 'content']
+        }
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: translationSchema,
+            },
+        });
+        const jsonText = response.text.trim();
+        const translatedData = JSON.parse(jsonText) as Array<Omit<OccultScienceChapter, 'id'>>;
+
+        return chapters.map((originalChapter, index) => {
+            const translatedPart = translatedData[index];
+            return translatedPart ? { ...originalChapter, ...translatedPart } : originalChapter;
+        });
+
+    } catch (error) {
+        console.error(`Error calling Gemini API for occult chapter translation into ${language}:`, error);
+        throw new Error(`Failed to translate the occult science details into ${language}.`);
     }
 };
 

@@ -1,6 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { OCCULT_SCIENCES_DATA } from '../constants/occultData';
 import type { OccultScienceChapter } from '../types';
+import { translateOccultChapters } from '../services/geminiService';
+import LoadingSpinner from './LoadingSpinner';
+import ErrorMessage from './ErrorMessage';
 
 const SectionContent: React.FC<{ content: OccultScienceChapter['content'] }> = ({ content }) => {
     return (
@@ -42,9 +45,19 @@ const SectionContent: React.FC<{ content: OccultScienceChapter['content'] }> = (
     );
 };
 
-const OccultSciences: React.FC = () => {
+interface OccultSciencesProps {
+    language: string;
+    onApiUse: () => void;
+}
+
+const OccultSciences: React.FC<OccultSciencesProps> = ({ language, onApiUse }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedChapterId, setSelectedChapterId] = useState<number | null>(OCCULT_SCIENCES_DATA[0]?.id || null);
+
+    const [chapterForDisplay, setChapterForDisplay] = useState<OccultScienceChapter | null>(null);
+    const [translationCache, setTranslationCache] = useState<Record<string, OccultScienceChapter>>({});
+    const [isCardLoading, setIsCardLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const filteredChapters = useMemo(() => {
         if (!searchTerm.trim()) {
@@ -55,11 +68,60 @@ const OccultSciences: React.FC = () => {
             chapter.title.toLowerCase().includes(lowercasedTerm)
         );
     }, [searchTerm]);
-    
-    const selectedChapter = useMemo(() => {
-        return OCCULT_SCIENCES_DATA.find(c => c.id === selectedChapterId);
-    }, [selectedChapterId]);
 
+    useEffect(() => {
+        if (filteredChapters.length > 0 && !filteredChapters.some(c => c.id === selectedChapterId)) {
+            setSelectedChapterId(filteredChapters[0].id);
+        } else if (filteredChapters.length === 0) {
+            setSelectedChapterId(null);
+        }
+    }, [filteredChapters, selectedChapterId]);
+
+    useEffect(() => {
+        if (selectedChapterId === null) {
+            setChapterForDisplay(null);
+            return;
+        }
+
+        const originalChapter = OCCULT_SCIENCES_DATA.find(c => c.id === selectedChapterId);
+        if (!originalChapter) return;
+
+        if (language === 'English') {
+            setChapterForDisplay(originalChapter);
+            setError(null);
+            return;
+        }
+
+        const cacheKey = `${selectedChapterId}-${language}`;
+        if (translationCache[cacheKey]) {
+            setChapterForDisplay(translationCache[cacheKey]);
+            return;
+        }
+        
+        const fetchTranslation = async () => {
+            setIsCardLoading(true);
+            setError(null);
+            try {
+                const translated = await translateOccultChapters([originalChapter], language);
+                if (translated && translated.length > 0) {
+                    setTranslationCache(prev => ({ ...prev, [cacheKey]: translated[0] }));
+                    setChapterForDisplay(translated[0]);
+                    onApiUse();
+                } else {
+                     throw new Error("Translation returned empty result.");
+                }
+            } catch (err: any) {
+                setError(err.message);
+                setChapterForDisplay(originalChapter); // Fallback to English on error
+            } finally {
+                setIsCardLoading(false);
+            }
+        };
+
+        fetchTranslation();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedChapterId, language]);
+    
     return (
         <div className="w-full max-w-6xl mx-auto my-6 animate-landing animate-fade-in" style={{ animationDelay: '1.3s' }}>
             <div className="text-center mb-8">
@@ -96,17 +158,21 @@ const OccultSciences: React.FC = () => {
                     </div>
                 </div>
                  <div className="md:col-span-2 p-6 rounded-xl shadow-lg">
-                    {selectedChapter ? (
+                    {isCardLoading && <div className="flex justify-center items-center h-full min-h-[400px]"><LoadingSpinner /></div>}
+                    {!isCardLoading && error && <ErrorMessage message={error} />}
+                    {!isCardLoading && !error && chapterForDisplay ? (
                         <div className="prose prose-lg max-w-none text-[var(--text-primary)] prose-headings:text-[var(--text-header)] prose-strong:text-[var(--text-header)]">
-                            <h3 className="text-2xl font-bold mb-4 border-b pb-2 border-[var(--border-color)]">{selectedChapter.title}</h3>
-                            <SectionContent content={selectedChapter.content} />
+                            <h3 className="text-2xl font-bold mb-4 border-b pb-2 border-[var(--border-color)]">{chapterForDisplay.title}</h3>
+                            <SectionContent content={chapterForDisplay.content} />
                         </div>
                     ) : (
-                        <div className="flex items-center justify-center h-full min-h-[400px]">
-                            <p className="text-center">
-                               {searchTerm ? "No chapters found matching your search." : "Select a chapter from the list to view its contents."}
-                            </p>
-                        </div>
+                        !isCardLoading && !error && (
+                            <div className="flex items-center justify-center h-full min-h-[400px]">
+                                <p className="text-center">
+                                   {searchTerm ? "No chapters found matching your search." : "Select a chapter from the list to view its contents."}
+                                </p>
+                            </div>
+                        )
                     )}
                 </div>
             </div>
