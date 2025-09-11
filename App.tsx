@@ -1096,7 +1096,7 @@ const App: React.FC = () => {
                 
                 {/* Sidebar */}
                 <div className="relative w-72 bg-amber-50 shadow-xl flex flex-col p-6 animate-slide-in-left">
-                    <div className="flex justify-between items-center mb-6">
+                    <div className="flex-shrink-0 flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold text-amber-900">Navigation</h2>
                         <button onClick={() => setIsMobileNavOpen(false)} aria-label="Close navigation menu" className="p-1 text-amber-700 hover:text-red-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1104,7 +1104,7 @@ const App: React.FC = () => {
                             </svg>
                         </button>
                     </div>
-                    <nav className="flex flex-col space-y-2">
+                    <nav className="flex-1 flex flex-col space-y-2 overflow-y-auto">
                         {renderMobileNavButton('find', 'Find Mantra for Problem')}
                         {renderMobileNavButton('lookup', 'Lookup Sloka')}
                         {renderMobileNavButton('vedic', 'Vedic Remedies')}
