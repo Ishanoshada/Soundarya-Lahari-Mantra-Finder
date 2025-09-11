@@ -173,7 +173,6 @@ const TantraBook: React.FC<TantraBookProps> = ({ onToggleSelect, bookmarkedItems
                           {(() => {
                               const bookmarkedItem = bookmarkedItems.find(i => i.type === 'tantra' && i.data.id === mantraForDisplay.id);
                               const isSelected = !!bookmarkedItem;
-                              // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
                               const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
                               const highlightKey = `tantra_${mantraForDisplay.id}`;
                               return (

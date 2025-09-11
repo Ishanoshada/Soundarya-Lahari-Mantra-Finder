@@ -176,7 +176,6 @@ const BuddhistChants: React.FC<BuddhistChantsProps> = ({ onToggleSelect, bookmar
                             {(() => {
                                 const bookmarkedItem = bookmarkedItems.find(i => i.type === 'buddhistChant' && i.data.id === chantForDisplay.id);
                                 const isSelected = !!bookmarkedItem;
-                                // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
                                 const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
                                 const highlightKey = `buddhistChant_${chantForDisplay.id}`;
                                 return (

@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-// FIX: Import MeditationGuideData to handle the 'meditation' bookmark type.
 import type { BookmarkedItem, Sloka, AudioTrack, CatholicPrayer, MeditationGuideData } from '../types';
 import { captureElementAsImage } from '../services/geminiService';
 
@@ -46,7 +45,6 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
         } catch (error) {
             // The utility function already alerts the user.
         } finally {
-            // FIX: Corrected typo from setIsCaptURING to setIsCapturing.
             setIsCapturing(false);
         }
     };
@@ -65,7 +63,6 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
                 return `Chant #${item.data.id}: ${item.data.title}`;
             case 'catholicPrayer':
                 return `Prayer #${item.data.id}: ${item.data.title}`;
-            // FIX: Add case for 'meditation' to resolve exhaustive switch error.
             case 'meditation':
                 return `Meditation #${item.data.id}: ${item.data.title}`;
             case 'audio':

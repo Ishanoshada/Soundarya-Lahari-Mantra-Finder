@@ -16,8 +16,8 @@
 
 ## Key Features
 
-- **AI-Powered Spiritual Search:** Utilizes Google's Gemini API to intelligently search across six distinct spiritual libraries, providing relevant mantras and remedies for any user-described problem or intention.
-- **Multi-Source Wisdom Library:** Integrates wisdom from *Soundarya Lahari*, *Infallible Vedic Remedies*, *Mantra* by Govinda Das Aghori, *Secrets of Yantra, Mantra and Tantra*, and the Buddhist *Pāli Canon*.
+- **AI-Powered Spiritual Search:** Utilizes Google's Gemini API to intelligently search across nine distinct spiritual libraries, providing relevant mantras and remedies for any user-described problem or intention.
+- **Multi-Source Wisdom Library:** Integrates wisdom from *Soundarya Lahari*, *Infallible Vedic Remedies*, *Mantra* by Govinda Das Aghori, *Secrets of Yantra, Mantra and Tantra*, a comprehensive collection on *Occult Sciences*, the Buddhist *Pāli Canon*, *Catholic Prayers*, guided *Meditation* practices, and scientific *Research Summaries* on meditation.
 - **Deep AI Analysis & Synthesis:** Offers AI-generated explanations of complex Bija Mantras and can even synthesize new, potent "Combined Mantras" from user selections.
 - **Personalized Sadhana Bookmarking:** A sophisticated system allows users to bookmark not just entire practices but specific sections (e.g., only the mantra text), creating a highly customized spiritual routine.
 - **Shareable Spiritual Practices:** Generate a unique URL that saves your complete set of bookmarked practices and language preferences, perfect for personal use or sharing with others.
@@ -26,7 +26,7 @@
 - **Multilingual Support:** On-demand translation of content into multiple languages, including English, Sinhala, Tamil, Hindi, and Malayalam, powered by the Gemini API.
 - **Scientific Research Summaries:** Bridges the gap between ancient wisdom and modern science with a dedicated section summarizing key research papers on the effects of mantra meditation.
 - **Comprehensive Meditation Guides:** In-depth guides on various meditation practices, including Buddhist techniques like **Mettā Bhāvanā** (Loving-Kindness), **Vipassanā** (Insight), and **Dasa Kasina** (Ten Wholes), as well as Hindu practices like **Vedic Mantra Meditation** and **Prāṇāyāma** (Vedic Breathing).
-- **Immersive UI/UX:** A beautifully designed, responsive interface with full-screen modes, audio feedback, and ambient background music to create a serene and focused user experience.
+- **Immersive UI/UX:** A beautifully designed, responsive interface with full-screen modes, audio feedback, and ambient background music to create a serene and focused user experience, including a dynamic dark theme for specific sections.
 
 <p align="center">
   <a href="#introduction--vision">Introduction</a> •
@@ -47,7 +47,6 @@ This application is a bridge between timeless spiritual knowledge and modern tec
 Our vision is to make the deep, often complex, wisdom of these ancient traditions accessible, understandable, and actionable for a global audience, regardless of their native language or prior knowledge. Whether you are a seasoned practitioner or a curious seeker, this guide is designed to support your spiritual journey.
 
 ---
-
 
 <p align="center">
 
@@ -84,7 +83,10 @@ A collection of essential chants from the Pāli Canon, as found in the "Buddhist
 ### 6. Catholic Prayers
 A collection of traditional Catholic prayers from the "Prayer Time: A Collection of Catholic Prayers" booklet, including fundamental prayers, devotions, and prayers for special intentions. This section offers a connection to Christian contemplative and devotional practices.
 
-### 7. Meditation (Bhavana)
+### 7. Occult Sciences & Esoteric Practices
+A comprehensive guide compiled from multiple traditional texts on esoteric practices. This section covers foundational principles such as initiation (Diksha), meditation, and astrology, before delving into specific rites (Shatkarma) including Vashikaran (Attraction), Stambhan (Paralyzing), and Maran (Rite of Death). It includes detailed mantras, yantras, and rituals, alongside crucial spiritual warnings about their use and karmic consequences.
+
+### 8. Meditation (Bhavana)
 This section provides guides on formal meditation practices from both Buddhist and Vedic traditions, offering structured methods for calming the mind, developing concentration, and cultivating wisdom.
 
 - **Mettā Bhavana (Loving-Kindness Meditation):** A foundational Buddhist practice aimed at cultivating boundless goodwill and compassion for all living beings. Sourced from texts like the "Baudhyāyage Athpotha," it offers a safe and powerful method for developing inner peace.
@@ -95,22 +97,9 @@ This section provides guides on formal meditation practices from both Buddhist a
 
 ---
 
-
 <p align="center">
 
 ![3](/imgs/3.png)
-
-</p>
-
-<p align="center">
-
-![4](/imgs/4.png)
-
-</p>
-
-<p align="center">
-
-![5](/imgs/5.png)
 
 </p>
 ## Feature Walkthrough: A Step-by-Step Journey
@@ -123,7 +112,7 @@ The primary way to begin is through the **AI-Powered Search**. In the "Find Mant
 - **Examples:** "I need help focusing on my studies," "mantra for courage before an interview," or "remedy for financial difficulties."
 - **Combine Feature:** You can check the "Combine mantras" box. This tells the AI to find 2-3 practices from different sources that work *synergistically* together for a more powerful, multi-faceted approach.
 
-The Gemini AI will analyze your query and search across all six spiritual libraries to find the most relevant recommendations.
+The Gemini AI will analyze your query and search across all spiritual libraries to find the most relevant recommendations.
 
 ### Step 2: Explore the AI's Recommendations
 The AI may return a single, highly relevant practice or a collection of synergistic ones. The results are presented in a clear, expandable format. You can click on each recommendation to open a detailed card without leaving the page.
@@ -167,14 +156,22 @@ Use the navigation buttons at the top to explore each spiritual library individu
 - **Audio Pronunciation:** An icon next to each Soundarya Lahari Bija Mantra utilizes the browser's Web Speech API to provide an audio pronunciation, aiding in correct recitation.
 
 
-
-
 <p align="center">
 
-![1](/imgs/6.png)
+![4](/imgs/4.png)
 
 </p>
 
+<p align="center">
+
+![5](/imgs/5.png)
+
+</p>
+<p align="center">
+
+![6](/imgs/6.png)
+
+</p>
 ## Understanding Bija Mantras
 
 A **Bija (seed) mantra** is a single-syllable sound that holds a potent, concentrated form of divine energy. In traditions like Shri Vidya, these seed sounds are considered the acoustic roots of deities, elements, and cosmic forces.
@@ -202,13 +199,6 @@ A **Bija (seed) mantra** is a single-syllable sound that holds a potent, concent
 
 ---
 
-
-<p align="center">
-
-![1](/imgs/7.png)
-
-</p>
-
 ## Technology Stack & Architecture
 
 This application is built with a modern frontend stack and is deeply integrated with the Google Gemini API to deliver its intelligent features.
@@ -232,32 +222,9 @@ A hybrid data strategy ensures both performance and intelligence:
 - **AI as an Intelligent Layer:** The Gemini API is used as an intelligent layer *on top* of this local data for advanced searching, analysis, translation, and conversation, providing dynamic capabilities that would be impossible with a static dataset.
 
 ### Third-Party Libraries
-- **`html2canvas`:** A powerful library used to implement the screenshot functionality, allowing users to capture and share beautifully rendered images of mantras, analyses, or the entire application view.
+- **`html2canvas`:** A powerful library used to implement the screenshot functionality, allowing users to capture and share beautiful, watermarked images of mantras, analyses, or the entire application view with a single click.
 
 ---
-
-
-
-<p align="center">
-
-![7](/imgs/7.png)
-
-</p>
-
-
-<p align="center">
-
-![8](/imgs/8.png)
-
-</p>
-
-
-
-<p align="center">
-
-![9](/imgs/9.png)
-
-</p>
 
 ## Getting Started (For Developers)
 
@@ -288,13 +255,20 @@ Follow these steps to get a local copy up and running.
     Open your browser and navigate to the local address provided (e.g., `http://localhost:8000`).
 
 
-
 <p align="center">
 
-![10](/imgs/10.png)
+![7](/imgs/7.png)
+</p>
+<p align="center">
+
+![8](/imgs/8.png)
 
 </p>
+<p align="center">
 
+![9](/imgs/9.png)
+
+</p>
 ## Contributing
 
 Contributions are welcome! If you have suggestions for improvements, new features, or find any bugs, please feel free to open an issue or submit a pull request.
@@ -303,7 +277,7 @@ Contributions are welcome! If you have suggestions for improvements, new feature
 - `index.html`: Main entry point.
 - `index.tsx`: Root of the React application.
 - `components/`: Reusable React components.
-- `constants/`: Static data arrays (`slokaData.ts`, `remediesData.ts`, `tantraBookData.ts`, `mantraBookData.ts`, `buddhistChantsData.ts`, `audioData.ts`, `researchData.ts`).
+- `constants/`: Static data arrays (`audioData.ts`, `backgroundMusicData.ts`, `buddhistChantsData.ts`, `catholicPrayersData.ts`, `mantraBookData.ts`, `meditationData.ts`, `occultData.ts`, `remediesData.ts`, `researchData.ts`, `slokaData.ts`, `tantraBookData.ts`).
 - `services/`: `geminiService.ts` for all Gemini API communication.
 - `types.ts`: TypeScript interfaces for all data structures.
 
@@ -317,6 +291,17 @@ We extend our deepest gratitude to:
 
 ---
 
+
+<p align="center">
+
+![10](/imgs/10.png)
+
+</p>
+<p align="center">
+
+![11](/imgs/11.png)
+
+</p>
 ## Disclaimer
 
 This tool is intended for spiritual guidance and personal exploration. Information sourced from external texts is presented as-is for educational purposes and has not been independently verified. This application is not a substitute for professional advice. For serious medical, financial, or psychological matters, please consult with a qualified professional.

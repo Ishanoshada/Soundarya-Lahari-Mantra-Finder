@@ -23,6 +23,8 @@ import HowToUseModal from './components/HowToUseModal';
 import AudioLibrary from './components/AudioLibrary';
 import ResearchSummaries from './components/ResearchSummaries';
 import Preloader from './components/Preloader';
+import OccultSciences from './components/OccultSciences';
+import KarmicWarningModal from './components/KarmicWarningModal';
 import { findMantraForProblem, translateSearchResults, getApiUsage, API_LIMIT } from './services/geminiService';
 import { SLOKA_DATA } from './constants/slokaData';
 import { VEDIC_REMEDIES_DATA } from './constants/remediesData';
@@ -37,10 +39,8 @@ import BuddhistChants from './components/BuddhistChants';
 import CatholicPrayers from './components/CatholicPrayers';
 import CatholicPrayerCard from './components/CatholicPrayerCard';
 import MeditationGuide from './components/MeditationGuide';
-// FIX: Import MeditationList to correctly render the meditation section.
 import MeditationList from './components/MeditationList';
-// FIX: Add MeditationGuideData to the type imports.
-import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, MantraBookItem, BookmarkedItem, BuddhistChant, CatholicPrayer, AudioTrack, BackgroundMusicTrack, MeditationGuideData } from './types';
+import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, MantraBookItem, BookmarkedItem, BuddhistChant, CatholicPrayer, AudioTrack, BackgroundMusicTrack, MeditationGuideData, AppMode } from './types';
 
 const LANGUAGES = ["English", "Sinhala", "Tamil", "Hindi", "Malayalam"];
 const CODE_LANG_MAP: { [key: string]: string } = {
@@ -50,7 +50,6 @@ const CODE_LANG_MAP: { [key: string]: string } = {
     'hi': 'Hindi',
     'ml': 'Malayalam'
 };
-type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'mantraBook' | 'buddhistChants' | 'catholicPrayers' | 'listen' | 'aiChat' | 'research' | 'meditation';
 
 const formatTitleForDisplay = (title: string): string => {
     return title.replace(/\s*-\s*\d+$/, '').trim();
@@ -74,13 +73,13 @@ interface SearchResultsProps {
   results: SearchResult[];
   bookmarkedItems: BookmarkedItem[];
   highlightedSections: Record<string, string[]>;
-  language: string; // FIX: Add language prop for translation.
+  language: string; 
   onToggleSloka: (sloka: Sloka) => void;
   onToggleRemedy: (remedy: VedicRemedy) => void;
   onToggleMantraBookItem: (item: MantraBookItem) => void;
   onToggleBuddhistChant: (item: BuddhistChant) => void;
   onToggleCatholicPrayer: (item: CatholicPrayer) => void;
-  onToggleMeditation: (guide: MeditationGuideData) => void; // FIX: Add handler for meditation guides.
+  onToggleMeditation: (guide: MeditationGuideData) => void;
   onToggleSlokaSection: (sloka: Sloka, sectionTitle: string) => void;
   onToggleRemedySection: (remedy: VedicRemedy, sectionTitle: string) => void;
   onToggleMantraBookSection: (item: MantraBookItem, sectionTitle: string) => void;
@@ -113,7 +112,6 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                 case 'mantraBook': key = `mantraBook_${result.data.id}`; break;
                 case 'buddhistChant': key = `buddhistChant_${result.data.id}`; break;
                 case 'catholicPrayer': key = `catholicPrayer_${result.data.id}`; break;
-                // FIX: Add case for meditation.
                 case 'meditation': key = `meditation_${result.data.id}`; break;
                 default: return false;
             }
@@ -140,7 +138,6 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
             case 'mantraBook': highlightKey = `mantraBook_${result.data.id}`; break;
             case 'buddhistChant': highlightKey = `buddhistChant_${result.data.id}`; break;
             case 'catholicPrayer': highlightKey = `catholicPrayer_${result.data.id}`; break;
-            // FIX: Add case for meditation.
             case 'meditation': highlightKey = `meditation_${result.data.id}`; break;
         }
 
@@ -155,7 +152,6 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                 return <div className="p-0 md:p-0"><BuddhistChantCard chant={result.data} onToggleSelect={() => onToggleBuddhistChant(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleBuddhistChantSection(result.data, title)} /></div>;
             case 'catholicPrayer':
                 return <div className="p-0 md:p-0"><CatholicPrayerCard prayer={result.data} onToggleSelect={() => onToggleCatholicPrayer(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleCatholicPrayerSection(result.data, title)} /></div>;
-            // FIX: Add case for meditation.
             case 'meditation':
                 return <div className="p-0 md:p-0"><MeditationGuide guide={result.data.translations[language] || result.data.translations['English']} onToggleSelect={() => onToggleMeditation(result.data)} isSelected={isBookmarked(result)} /></div>;
         }
@@ -203,7 +199,6 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                         identifier = `Prayer #${key}`;
                         highlightKey = `catholicPrayer_${key}`;
                         break;
-                    // FIX: Add case for meditation.
                     case 'meditation':
                         key = result.data.id;
                         title = result.data.title;
@@ -288,7 +283,6 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                                           onToggleSectionBookmark={(title) => onToggleCatholicPrayerSection(result.data, title)}
                                         />
                                     </div>
-                                // FIX: Add render case for meditation.
                                 ) : result.type === 'meditation' ? (
                                     <div className="p-6 md:p-8">
                                         <MeditationGuide
@@ -339,6 +333,7 @@ const App: React.FC = () => {
   const [apiUsage, setApiUsage] = useState({ count: 0, limit: API_LIMIT });
   const [showPreloader, setShowPreloader] = useState(shouldShowPreloaderInitially());
   const [isPreloaderHiding, setIsPreloaderHiding] = useState(false);
+  const [karmicWarningDismissed, setKarmicWarningDismissed] = useState(false);
 
 
   const [showBookmarkPanel, setShowBookmarkPanel] = useState(true);
@@ -435,20 +430,26 @@ const App: React.FC = () => {
 
   // Effect to lock body scroll when mobile nav is open
   useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
     if (isMobileNavOpen) {
-        html.style.overflow = 'hidden';
-        body.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
     } else {
-        html.style.overflow = '';
-        body.style.overflow = '';
+        document.body.style.overflow = 'auto';
     }
     return () => {
-        html.style.overflow = '';
-        body.style.overflow = '';
+        document.body.style.overflow = 'auto';
     };
-  }, [isMobileNavOpen]);
+}, [isMobileNavOpen]);
+
+    // Effect for dark/scary theme and karmic warning
+    useEffect(() => {
+        if (mode === 'occult') {
+            document.body.classList.add('dark-theme');
+        } else {
+            document.body.classList.remove('dark-theme');
+            // Reset the warning dismissal when navigating away from the occult section
+            setKarmicWarningDismissed(false);
+        }
+    }, [mode]);
 
   // Effect to show/hide floating buttons on scroll without causing re-renders
   useEffect(() => {
@@ -873,7 +874,6 @@ const App: React.FC = () => {
     }
   };
 
-  // FIX: Add handler for toggling meditation guide bookmarks.
   const handleToggleMeditationGuide = (guideToToggle: MeditationGuideData) => {
     const existingIndex = bookmarkedItems.findIndex(item => 
         item.type === 'meditation' && item.data.id === guideToToggle.id
@@ -982,7 +982,6 @@ const App: React.FC = () => {
                     setMode('catholicPrayers');
                     setInitialViewTarget({ mode: 'catholicPrayers', id: item.data.id });
                     break;
-                // FIX: Add case for meditation.
                 case 'meditation':
                     setMode('meditation');
                     setInitialViewTarget({ mode: 'meditation', id: item.data.id });
@@ -1066,7 +1065,8 @@ const App: React.FC = () => {
   return (
     <>
       {showPreloader && <Preloader isHiding={isPreloaderHiding} />}
-      <div className={`min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100 text-slate-800 p-4 sm:p-8 flex flex-col items-center ${!showPreloader ? 'animate-fade-in' : 'opacity-0'}`}>
+      {mode === 'occult' && !karmicWarningDismissed && <KarmicWarningModal language={language} setLanguage={setLanguage} onClose={() => setKarmicWarningDismissed(true)} />}
+      <div className={`min-h-screen ${mode !== 'occult' ? 'bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100' : ''} text-slate-800 p-4 sm:p-8 flex flex-col items-center ${!showPreloader ? 'animate-fade-in' : 'opacity-0'}`}>
         
         <audio
           ref={bgAudioRef}
@@ -1096,7 +1096,7 @@ const App: React.FC = () => {
                 
                 {/* Sidebar */}
                 <div className="relative w-72 bg-amber-50 shadow-xl flex flex-col p-6 animate-slide-in-left">
-                    <div className="flex-shrink-0 flex justify-between items-center mb-6">
+                    <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold text-amber-900">Navigation</h2>
                         <button onClick={() => setIsMobileNavOpen(false)} aria-label="Close navigation menu" className="p-1 text-amber-700 hover:text-red-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1104,7 +1104,7 @@ const App: React.FC = () => {
                             </svg>
                         </button>
                     </div>
-                    <nav className="flex-1 flex flex-col space-y-2 overflow-y-auto">
+                    <nav className="flex flex-col space-y-2">
                         {renderMobileNavButton('find', 'Find Mantra for Problem')}
                         {renderMobileNavButton('lookup', 'Lookup Sloka')}
                         {renderMobileNavButton('vedic', 'Vedic Remedies')}
@@ -1113,6 +1113,7 @@ const App: React.FC = () => {
                         {renderMobileNavButton('buddhistChants', 'Buddhist Chants')}
                         {renderMobileNavButton('catholicPrayers', 'Catholic Prayers')}
                         {renderMobileNavButton('meditation', 'Meditation')}
+                        {renderMobileNavButton('occult', 'Occult Sciences')}
                         {renderMobileNavButton('listen', 'Listen to Chants')}
                         {renderMobileNavButton('aiChat', 'AI Chat Guide')}
                         {renderMobileNavButton('research', 'Research')}
@@ -1150,9 +1151,10 @@ const App: React.FC = () => {
             {renderNavButton('buddhistChants', 'Buddhist Chants', 5)}
             {renderNavButton('catholicPrayers', 'Catholic Prayers', 6)}
             {renderNavButton('meditation', 'Meditation', 7)}
-            {renderNavButton('listen', 'Listen to Chants', 8)}
-            {renderNavButton('aiChat', 'AI Chat Guide', 9)}
-            {renderNavButton('research', 'Research', 10)}
+            {renderNavButton('occult', 'Occult Sciences', 8)}
+            {renderNavButton('listen', 'Listen to Chants', 9)}
+            {renderNavButton('aiChat', 'AI Chat Guide', 10)}
+            {renderNavButton('research', 'Research', 11)}
           </div>
 
           <div className="w-full max-w-2xl mx-auto mb-4 flex justify-center items-center flex-wrap gap-4 animate-landing animate-fade-in" style={{ animationDelay: '1.2s' }}>
@@ -1307,6 +1309,8 @@ const App: React.FC = () => {
                   initialSelectedId={initialViewTargetRef.current?.mode === 'meditation' ? initialViewTargetRef.current.id as number : null}
               />
           )}
+
+          {mode === 'occult' && <OccultSciences />}
 
           {mode === 'listen' && (
               <AudioLibrary

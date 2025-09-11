@@ -213,7 +213,6 @@ const MantraLookup: React.FC<MantraLookupProps> = ({
         {displayResults && !isLoading && displayResults.map(mantra => {
           const bookmarkedItem = bookmarkedItems.find(i => i.type === 'sloka' && i.data.slokaNumber === mantra.slokaNumber);
           const isSelected = !!bookmarkedItem;
-          // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
           const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
           const highlightKey = `sloka_${mantra.slokaNumber}`;
 

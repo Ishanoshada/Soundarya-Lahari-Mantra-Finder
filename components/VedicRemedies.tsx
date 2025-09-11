@@ -171,7 +171,6 @@ const VedicRemedies: React.FC<VedicRemediesProps> = ({ onToggleSelect, bookmarke
                           {(() => {
                               const bookmarkedItem = bookmarkedItems.find(i => i.type === 'remedy' && i.data.id === remedyForDisplay.id);
                               const isSelected = !!bookmarkedItem;
-                              // FIX: Safely access sections property by checking if it exists on the bookmarkedItem.
                               const bookmarkedSections = (bookmarkedItem && 'sections' in bookmarkedItem && bookmarkedItem.sections) || [];
                               const highlightKey = `remedy_${remedyForDisplay.id}`;
                               return (

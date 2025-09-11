@@ -118,6 +118,13 @@ export interface BackgroundMusicTrack {
   src: string;
 }
 
+export interface OccultScienceChapter {
+  id: number;
+  title: string;
+  content: (string | { type: 'list'; items: string[] } | { type: 'table'; headers: string[]; rows: (string|number)[][] } | {type: 'subheading', text: string})[];
+}
+
+
 export type SearchResult = 
   | { type: 'sloka'; data: Sloka }
   | { type: 'remedy'; data: VedicRemedy }
@@ -178,3 +185,5 @@ export interface ResearchSummary {
   affiliation?: string;
   summarySections: ResearchSummarySection[];
 }
+
+export type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'mantraBook' | 'buddhistChants' | 'catholicPrayers' | 'listen' | 'aiChat' | 'research' | 'meditation' | 'occult';
