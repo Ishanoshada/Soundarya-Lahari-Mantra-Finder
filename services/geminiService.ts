@@ -4,7 +4,9 @@ import { VEDIC_REMEDIES_DATA } from "../constants/remediesData";
 import { TANTRA_BOOK_DATA } from "../constants/tantraBookData";
 import { MANTRA_BOOK_DATA } from "../constants/mantraBookData";
 import { BUDDHIST_CHANTS_DATA } from "../constants/buddhistChantsData";
-import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, MantraBookItem, ChatMessage, MantraIdentifier, CombinedMantraResponse, BuddhistChant } from "../types";
+import { CATHOLIC_PRAYERS_DATA } from "../constants/catholicPrayersData";
+import { MEDITATION_GUIDES } from "../constants/meditationData";
+import type { Sloka, BijaMantraApiResponse, VedicRemedy, SearchResult, TantraBookMantra, MantraBookItem, ChatMessage, MantraIdentifier, CombinedMantraResponse, BuddhistChant, CatholicPrayer, MeditationGuideData } from "../types";
 
 // --- API Rate Limiting ---
 export const API_LIMIT = 7;
@@ -86,8 +88,6 @@ const readUsage = (): { count: number, resetTime: number } | { tampered: true } 
 
 export const getApiUsage = (): { count: number; limit: number } => {
     const usage = readUsage();
-    // FIX: Use a direct property check for 'count' to safely narrow the union type.
-    // This resolves the issue where TypeScript fails to infer the type after the previous check.
     if (!('count' in usage)) {
         return { count: API_LIMIT, limit: API_LIMIT };
     }
@@ -97,8 +97,6 @@ export const getApiUsage = (): { count: number; limit: number } => {
 const checkAndRecordApiUsage = (): void => {
     const usage = readUsage();
 
-    // FIX: Use a direct property check for '!('count' in usage)' to safely identify the 'tampered' case.
-    // This allows TypeScript to correctly narrow the type of 'usage' for subsequent property access.
     if (!('count' in usage)) {
         const now = Date.now();
         const newResetTime = now + 24 * 60 * 60 * 1000;
@@ -138,7 +136,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 const identifierSchema = {
   type: Type.OBJECT,
   properties: {
-    source: { type: Type.STRING, enum: ['Soundarya Lahari', 'Vedic Remedies', 'Mantra Book', 'Buddhist Chants'], description: "The source dataset of the item." },
+    source: { type: Type.STRING, enum: ['Soundarya Lahari', 'Vedic Remedies', 'Mantra Book', 'Buddhist Chants', 'Catholic Prayers', 'Meditation'], description: "The source dataset of the item." },
     identifier: { type: Type.INTEGER, description: "Use 'slokaNumber' for Soundarya Lahari, or 'id' for other sources." },
   },
   required: ['source', 'identifier'],
@@ -156,13 +154,15 @@ export const findMantraForProblem = async (problem: string, combine: boolean): P
   const remediesDataString = JSON.stringify(VEDIC_REMEDIES_DATA.map(({id, title, purpose}) => ({id, title, purpose})), null, 2);
   const mantraBookDataString = JSON.stringify(MANTRA_BOOK_DATA.map(({id, title, category, meaning}) => ({id, title, purpose: `${category}: ${meaning.join(' ')}`})), null, 2);
   const buddhistChantsDataString = JSON.stringify(BUDDHIST_CHANTS_DATA.map(({id, title, english}) => ({id, title, purpose: english.join(' ')})), null, 2);
+  const catholicPrayersDataString = JSON.stringify(CATHOLIC_PRAYERS_DATA.map(({id, title, text}) => ({id, title, purpose: text.join(' ')})), null, 2);
+  const meditationDataString = JSON.stringify(MEDITATION_GUIDES.map(guide => ({ id: guide.id, title: guide.title, purpose: guide.subtitle })), null, 2);
 
 
-  const prompt = `You are a wise and compassionate spiritual scholar with deep knowledge of both Hindu Vedic traditions (including Soundarya Lahari, remedies, and mantras) and Buddhist philosophy (specifically Pāli chants). Your task is to analyze the user's problem and recommend the most appropriate spiritual solution(s) from FOUR provided JSON datasets.
+  const prompt = `You are a wise and compassionate spiritual scholar with deep knowledge of Hindu Vedic traditions, Buddhist philosophy, and Catholic prayers. Your task is to analyze the user's problem and recommend the most appropriate spiritual solution(s) from the provided JSON datasets.
 
 User's Problem: "${problem}"
 
-Analyze the 'beneficialResults', 'literalResults', and 'title' of the slokas, and the 'purpose' and 'title' of other items to find the best match. Buddhist chants often focus on mental states like peace, loving-kindness, and protection; match them to problems related to fear, anxiety, lack of compassion, or seeking blessings and safety.
+Analyze the 'beneficialResults', 'literalResults', and 'title' of the slokas, and the 'purpose' and 'title' of other items to find the best match. Buddhist chants and meditations often focus on mental states like peace and loving-kindness. Catholic prayers often address needs for guidance, forgiveness, strength, and intercession. Match these to relevant problems.
 
 ${ combine 
     ? "The user wants a powerful, synergistic combination. Please identify the 2 or 3 solutions that work best *together* to solve this problem. You can mix and match from all sources."
@@ -172,7 +172,7 @@ ${ combine
 CRITICAL INSTRUCTIONS:
 1.  Your entire response MUST be a JSON array of objects matching the provided schema. If you find no matches, return an empty array [].
 2.  For each recommended item, you must return an object with two fields:
-    - "source": Must be one of the exact strings: 'Soundarya Lahari', 'Vedic Remedies', 'Mantra Book', or 'Buddhist Chants'.
+    - "source": Must be one of the exact strings: 'Soundarya Lahari', 'Vedic Remedies', 'Mantra Book', 'Buddhist Chants', 'Catholic Prayers', or 'Meditation'.
     - "identifier": Must be the integer value from the 'slokaNumber' field (for Soundarya Lahari) or the 'id' field (for other sources).
 3.  Do NOT return the full text or any other fields. Only return the source and the identifier.
 
@@ -187,6 +187,12 @@ ${mantraBookDataString}
 
 DATASET 4: Buddhist Chants
 ${buddhistChantsDataString}
+
+DATASET 5: Catholic Prayers
+${catholicPrayersDataString}
+
+DATASET 6: Meditation Guides
+${meditationDataString}
 `;
 
   try {
@@ -703,6 +709,185 @@ export const translateBuddhistChants = async (chants: BuddhistChant[], language:
     }
 };
 
+export const translateCatholicPrayers = async (prayers: CatholicPrayer[], language: string, skipLimitCheck = false): Promise<CatholicPrayer[]> => {
+    if (language === 'English' || prayers.length === 0) {
+        return prayers;
+    }
+
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
+    }
+
+    const prayersToTranslate = prayers.map(p => ({
+        id: p.id,
+        category: p.category,
+        title: p.title,
+        text: p.text,
+        author: p.author,
+        source: p.source
+    }));
+
+    const prompt = `You are an expert multilingual translator specializing in religious and spiritual texts.
+    Your task is to translate the text content of the provided JSON object(s) into ${language}.
+    
+    You must translate the values for the following keys: 'category', 'title', 'author', 'source', and the strings within the 'text' array.
+    
+    The 'id' key must be preserved as is.
+    
+    Return ONLY the final translated JSON array. Do not include any other text or explanation in your response.
+
+    JSON to Translate:
+    ${JSON.stringify(prayersToTranslate, null, 2)}
+    `;
+
+    const translationSchema = {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.INTEGER },
+                category: { type: Type.STRING },
+                title: { type: Type.STRING },
+                text: { type: Type.ARRAY, items: { type: Type.STRING } },
+                author: { type: Type.STRING },
+                source: { type: Type.STRING },
+            },
+            required: ['id', 'category', 'title', 'text']
+        }
+    };
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: translationSchema,
+            },
+        });
+        const jsonText = response.text.trim();
+        const translatedData = JSON.parse(jsonText) as Array<Partial<CatholicPrayer>>;
+
+        return prayers.map(originalPrayer => {
+            const translatedPart = translatedData.find(t => t.id === originalPrayer.id);
+            return translatedPart ? { ...originalPrayer, ...translatedPart } : originalPrayer;
+        });
+
+    } catch (error) {
+        console.error("Error calling Gemini API for Catholic prayer translation:", error);
+        throw new Error(`Failed to translate the Catholic prayer details into ${language}.`);
+    }
+};
+
+export const translateMeditationGuides = async (guides: MeditationGuideData[], language: string, skipLimitCheck = false): Promise<MeditationGuideData[]> => {
+    if (language === 'English' || guides.length === 0) {
+        return guides;
+    }
+    if (!skipLimitCheck) {
+        checkAndRecordApiUsage();
+    }
+
+    const guidesToTranslate = guides.map(guide => ({
+        id: guide.id,
+        content: guide.translations['English'] // Always translate from the English source
+    }));
+
+    const prompt = `You are an expert multilingual translator specializing in spiritual and meditation texts.
+    Your task is to translate the content of the provided JSON object(s) into ${language}.
+
+    You need to translate the values for 'parent', 'title', 'subtitle', 'safetyNote', and all 'heading' and 'content' strings within the 'sections' array. For content items that are lists or tables, translate all strings within them.
+
+    The 'id' key must be preserved. The structure of the 'sections' array (including types like 'list' or 'table') must be preserved.
+
+    Return ONLY the final translated JSON array. Do not include any other text or explanation.
+
+    JSON to Translate:
+    ${JSON.stringify(guidesToTranslate, null, 2)}
+    `;
+
+    const translationSchema = {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                id: { type: Type.INTEGER },
+                content: {
+                    type: Type.OBJECT,
+                    properties: {
+                        parent: { type: Type.STRING },
+                        title: { type: Type.STRING },
+                        subtitle: { type: Type.STRING },
+                        safetyNote: { type: Type.STRING },
+                        sections: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    heading: { type: Type.STRING },
+                                    content: { type: Type.ARRAY, items: {
+                                        oneOf: [
+                                            { type: Type.STRING },
+                                            {
+                                                type: Type.OBJECT,
+                                                properties: {
+                                                    type: { type: Type.STRING, enum: ['list'] },
+                                                    items: { type: Type.ARRAY, items: { type: Type.STRING } }
+                                                },
+                                                required: ['type', 'items']
+                                            },
+                                            {
+                                                type: Type.OBJECT,
+                                                properties: {
+                                                    type: { type: Type.STRING, enum: ['table'] },
+                                                    headers: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                                    rows: { type: Type.ARRAY, items: { type: Type.ARRAY, items: { type: Type.STRING } } }
+                                                },
+                                                required: ['type', 'headers', 'rows']
+                                            }
+                                        ]
+                                    }}
+                                },
+                                required: ['heading', 'content']
+                            }
+                        }
+                    },
+                    required: ['parent', 'title', 'subtitle', 'sections']
+                }
+            },
+            required: ['id', 'content']
+        }
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: translationSchema,
+            },
+        });
+        const jsonText = response.text.trim();
+        const translatedData = JSON.parse(jsonText) as { id: number; content: any }[];
+
+        return guides.map(originalGuide => {
+            const translatedPart = translatedData.find(t => t.id === originalGuide.id);
+            if (translatedPart) {
+                // Create a new guide object with all translations, updating the specific language
+                const newGuide = JSON.parse(JSON.stringify(originalGuide)); // Deep copy
+                newGuide.translations[language] = translatedPart.content;
+                return newGuide;
+            }
+            return originalGuide;
+        });
+
+    } catch (error) {
+        console.error("Error calling Gemini API for meditation guide translation:", error);
+        throw new Error(`Failed to translate the meditation guide into ${language}.`);
+    }
+};
+
+
 export const translateSearchResults = async (results: SearchResult[], language: string): Promise<SearchResult[]> => {
     if (language === 'English' || results.length === 0) {
         return results;
@@ -714,12 +899,16 @@ export const translateSearchResults = async (results: SearchResult[], language: 
     const remediesToTranslate = results.filter((r): r is { type: 'remedy'; data: VedicRemedy } => r.type === 'remedy').map(r => r.data);
     const mantraBookToTranslate = results.filter((r): r is { type: 'mantraBook'; data: MantraBookItem } => r.type === 'mantraBook').map(r => r.data);
     const buddhistChantsToTranslate = results.filter((r): r is { type: 'buddhistChant'; data: BuddhistChant } => r.type === 'buddhistChant').map(r => r.data);
+    const catholicPrayersToTranslate = results.filter((r): r is { type: 'catholicPrayer'; data: CatholicPrayer } => r.type === 'catholicPrayer').map(r => r.data);
+    const meditationToTranslate = results.filter((r): r is { type: 'meditation'; data: MeditationGuideData } => r.type === 'meditation').map(r => r.data);
 
-    const [translatedSlokas, translatedRemedies, translatedMantraBook, translatedBuddhistChants] = await Promise.all([
+    const [translatedSlokas, translatedRemedies, translatedMantraBook, translatedBuddhistChants, translatedCatholicPrayers, translatedMeditations] = await Promise.all([
         slokasToTranslate.length > 0 ? translateSlokas(slokasToTranslate, language, true) : Promise.resolve([]),
         remediesToTranslate.length > 0 ? translateVedicRemedies(remediesToTranslate, language, true) : Promise.resolve([]),
         mantraBookToTranslate.length > 0 ? translateMantraBookItems(mantraBookToTranslate, language, true) : Promise.resolve([]),
         buddhistChantsToTranslate.length > 0 ? translateBuddhistChants(buddhistChantsToTranslate, language, true) : Promise.resolve([]),
+        catholicPrayersToTranslate.length > 0 ? translateCatholicPrayers(catholicPrayersToTranslate, language, true) : Promise.resolve([]),
+        meditationToTranslate.length > 0 ? translateMeditationGuides(meditationToTranslate, language, true) : Promise.resolve([]),
     ]);
 
     return results.map(res => {
@@ -732,10 +921,17 @@ export const translateSearchResults = async (results: SearchResult[], language: 
         } else if (res.type === 'mantraBook') {
             const translated = translatedMantraBook.find(t => t.id === res.data.id);
             return { type: 'mantraBook' as const, data: translated || res.data };
-        } else { // buddhistChant
+        } else if (res.type === 'buddhistChant') {
             const translated = translatedBuddhistChants.find(t => t.id === res.data.id);
             return { type: 'buddhistChant' as const, data: translated || res.data };
+        } else if (res.type === 'catholicPrayer') {
+            const translated = translatedCatholicPrayers.find(t => t.id === res.data.id);
+            return { type: 'catholicPrayer' as const, data: translated || res.data };
+        } else if (res.type === 'meditation') {
+            const translated = translatedMeditations.find(t => t.id === res.data.id);
+            return { type: 'meditation' as const, data: translated || res.data };
         }
+        return res;
     });
 };
 
@@ -759,6 +955,7 @@ export const getAiChatResponse = async (message: string, history: ChatMessage[],
         // Handle general queries by providing an overview of the application and examples
         contextDataString = `
 This application is a comprehensive, interactive spiritual guide. When asked about the types of mantras or chants available, you should explain these categories and provide examples from the data below.
+This project was created by Ishan Oshada. Visit: ishanoshada.com
 
 **Application Sections:**
 1.  **Find Mantra for Problem:** AI search for user problems (Hindu traditions).
@@ -767,6 +964,8 @@ This application is a comprehensive, interactive spiritual guide. When asked abo
 4.  **Mantra Compendium:** A broad collection from "Mantra" by Govinda Das Aghori.
 5.  **Tantric Practices:** Yantras and rituals from "Secrets of Yantra, Mantra and Tantra".
 6.  **Buddhist Chants:** A collection of chants in Pāli with English translations.
+7.  **Catholic Prayers:** A collection of traditional Catholic prayers.
+8.  **Meditation:** Guided meditation practices like Loving-Kindness (Mettā) and Vedic Breathing (Prāṇāyāma).
 
 **Your capabilities as Lahari GPT:**
 - You can find specific mantras for user problems (e.g., "mantra for courage").
@@ -778,19 +977,14 @@ This application is a comprehensive, interactive spiritual guide. When asked abo
 
 *   **From Soundarya Lahari:** These are verses (slokas) combined with a Bija (seed) mantra for specific benefits.
     *   **Sloka #1:** Title: "Waves of Happiness", Bija Mantra: "Kleem", Purpose: "All prosperity, granting of cherished purposes and solution to intricate problems."
-
 *   **From Vedic Remedies:** These are powerful mantras for various life challenges.
-    *   **Remedy #2:** Title: "Dhanvantari Mantra", Purpose: "For all Physical and Mental Diseases", Mantra: "Om Namo Bhagavate Dhanvantaraye...".
-
-*   **From Mantra Compendium:** A broad collection including foundational mantras.
-    *   **Item #117:** Title: "Gayatri Mantra", Purpose: "Develop brilliant intellect, health, success, peace...", Mantra: "Om Bhūrbhuvaḥ svaḥ...".
-
-*   **From Tantric Practices:** These often involve Yantras (sacred diagrams) with associated mantras.
-    *   **Practice #1:** Title: "Shri Yantra Practice", Purpose: "Attainment of power, authority, and financial success.", Mantra: "Om Shareeng, Hareeng, Kaleeng...".
-
+    *   **Remedy #2:** Title: "Dhanvantari Mantra", Purpose: "For all Physical and Mental Diseases".
 *   **From Buddhist Chants:** These are devotional and protective chants from the Pāli Canon.
-    *   **Chant #301:** Title: "Preliminary Reverence", Purpose: "To pay homage to the Buddha.", Pāli: "Namo tassa bhagavato...".
-    *   **Chant #308:** Title: "Chant of Loving-Kindness", Purpose: "To radiate kindness over the entire world.", Pāli: "Karanīyam-attha-kusalēna...".
+    *   **Chant #308:** Title: "Chant of Loving-Kindness", Purpose: "To radiate kindness over the entire world.".
+*   **From Catholic Prayers:** These are devotional prayers from the Christian tradition.
+    *   **Prayer #403:** Title: "Our Father", Purpose: "A core Christian prayer for daily needs, forgiveness, and guidance."
+*   **From Meditation:**
+    *   **Guide #501:** Title: "Loving-Kindness Meditation", Purpose: "Cultivate boundless goodwill and compassion for all living beings."
 `;
         taskInstruction = `The user has asked a general question about the application or the types of practices available. Based on the **Application Sections** and **EXAMPLE DATA** provided above, provide a helpful and guiding response. Explain your purpose and what the user can do with this spiritual tool. When asked about mantra/chant types, list the categories and give some specific examples of practices and their purposes from the provided data. Structure the response clearly.`;
 
@@ -804,6 +998,7 @@ This application is a comprehensive, interactive spiritual guide. When asked abo
         const relevantTantra = TANTRA_BOOK_DATA.filter(t => filterByKeywords(t.title) || t.purpose.some(p => filterByKeywords(p))).slice(0, 1);
         const relevantMantraBook = MANTRA_BOOK_DATA.filter(m => filterByKeywords(m.title) || m.meaning.some(p => filterByKeywords(p))).slice(0, 1);
         const relevantBuddhistChants = BUDDHIST_CHANTS_DATA.filter(c => filterByKeywords(c.title) || c.english.join(' ').toLowerCase().includes(lowercasedMessage)).slice(0, 1);
+        const relevantCatholicPrayers = CATHOLIC_PRAYERS_DATA.filter(p => filterByKeywords(p.title) || p.text.join(' ').toLowerCase().includes(lowercasedMessage)).slice(0, 1);
         
         const contextData = {
             slokas: relevantSlokas,
@@ -811,18 +1006,20 @@ This application is a comprehensive, interactive spiritual guide. When asked abo
             tantraPractices: relevantTantra,
             mantraBook: relevantMantraBook,
             buddhistChants: relevantBuddhistChants,
+            catholicPrayers: relevantCatholicPrayers,
         };
         contextDataString = JSON.stringify(contextData, null, 2);
 
         taskInstruction = `Analyze the user's request in the context of our conversation. Then, using ONLY the provided relevant practices from the JSON above, craft a helpful response.
-
+This project was created by Ishan Oshada. Visit: ishanoshada.com
 **Response Requirements:**
 1.  **Structure:** Use clear markdown categories (e.g., ### Soundarya Lahari Practice).
 2.  **Explanation:** Briefly explain WHY the recommendation is suitable by referencing its purpose from the provided JSON data.
 3.  **Include Mantra/Chant Text:** This is critical. For each recommendation, you MUST include all relevant texts.
     *   For a 'sloka', include its \`bijaMantra\` and \`slokaText\`.
-    *   For 'remedies' or 'mantraBook', list each string from the \`transliteratedMantra\` or \`transliteration\` array.
+    *   For 'remedies', 'mantraBook', or 'tantraPractices', list each string from the transliterated mantra array.
     *   For a 'buddhistChant', include the \`pali\` text.
+    *   For a 'catholicPrayer', include the full \`text\`.
     *   Format the text clearly, using bolding or italics.
 4.  **Conciseness:** Be concise in your explanations, but ensure all required texts are always included.
 5.  **Relevance:** If none of the provided practices seem relevant, politely explain that you couldn't find a direct match and ask the user to rephrase their problem.
@@ -831,8 +1028,8 @@ This application is a comprehensive, interactive spiritual guide. When asked abo
     
     const historyString = history.map(h => `${h.role}: ${h.text}`).join('\n');
 
-    const prompt = `You are "Lahari GPT", an insightful and compassionate spiritual guide with deep knowledge of Soundarya Lahari, Vedic Remedies, Tantric practices, a general Mantra collection, and Buddhist Chanting. Your role is to provide clear, categorized, and actionable guidance based on the user's query and the context provided to you.
-
+    const prompt = `You are "Lahari GPT", an insightful and compassionate spiritual guide with deep knowledge of Soundarya Lahari, Vedic Remedies, Tantric practices, a general Mantra collection, Buddhist Chanting, and Catholic Prayers. Your role is to provide clear, categorized, and actionable guidance based on the user's query and the context provided to you.
+This project was created by Ishan Oshada. Visit: ishanoshada.com
 **CRITICAL INSTRUCTION: You MUST respond exclusively and entirely in the user's requested language: ${language}. Do not use English unless the user's message is in English and they have not specified another language. Adhere to this language requirement strictly.**
 
 Always respond in a supportive and respectful tone.

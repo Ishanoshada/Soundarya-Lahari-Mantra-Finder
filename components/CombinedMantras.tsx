@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import type { BookmarkedItem, Sloka } from '../types';
+// FIX: Import MeditationGuideData to handle all bookmarked item types.
+import type { BookmarkedItem, Sloka, AudioTrack, CatholicPrayer, MeditationGuideData } from '../types';
 import { captureElementAsImage } from '../services/geminiService';
 
 const CloseIcon = () => (
@@ -10,7 +11,7 @@ const CloseIcon = () => (
 
 const CameraIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
@@ -29,9 +30,10 @@ interface CombinedSelectionsProps {
   onCreateCombinedMantraRequest: (slokas: Sloka[]) => void;
   onClose: () => void;
   onNavigateToBookmark: (item: BookmarkedItem) => void;
+  onClearAll: () => void;
 }
 
-const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems, onRemoveBookmark, onExplainRequest, onCreateCombinedMantraRequest, onClose, onNavigateToBookmark }) => {
+const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems, onRemoveBookmark, onExplainRequest, onCreateCombinedMantraRequest, onClose, onNavigateToBookmark, onClearAll }) => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [isCapturing, setIsCapturing] = useState(false);
 
@@ -48,19 +50,28 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
         }
     };
 
-    const getItemDisplay = (item: BookmarkedItem) => {
+    const getItemDisplay = (item: BookmarkedItem): string => {
         switch (item.type) {
             case 'sloka':
                 return `Sloka #${item.data.slokaNumber}: ${item.data.title}`;
             case 'remedy':
                 return `Remedy #${item.data.id}: ${item.data.title}`;
             case 'tantra':
-                return `Mantra #${item.data.id}: ${item.data.title}`;
+                return `Practice #${item.data.id}: ${item.data.title}`;
             case 'mantraBook':
                 return `Compendium #${item.data.id}: ${item.data.title}`;
             case 'buddhistChant':
                 return `Chant #${item.data.id}: ${item.data.title}`;
+            case 'catholicPrayer':
+                return `Prayer #${item.data.id}: ${item.data.title}`;
+            case 'audio':
+                return `Audio: ${item.data.title}`;
+// FIX: Add case for 'meditation' to resolve exhaustive switch error.
+            case 'meditation':
+                return `Meditation #${item.data.id}: ${item.data.title}`;
             default:
+                const invalidItem: never = item;
+                console.warn("Unknown bookmarked item type:", invalidItem);
                 return 'Bookmarked Item';
         }
     };
@@ -68,10 +79,12 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
     const slokasInBookmarks = bookmarkedItems
         .filter((i): i is { type: 'sloka', data: Sloka } => i.type === 'sloka')
         .map(i => i.data);
+    
+    const hasSlokas = slokasInBookmarks.length > 0;
 
     return (
-        <div ref={cardRef} className="fixed bottom-4 right-4 w-full max-w-xs bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-amber-300/50 p-4 animate-fade-in z-50 flex flex-col">
-            <h3 className="text-lg font-bold text-amber-900 text-center pb-2 mb-2 border-b border-amber-200 flex justify-between items-center">
+        <div ref={cardRef} className="fixed bottom-4 right-4 w-full max-w-xs bg-white/70 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/50 p-4 animate-fade-in z-50 flex flex-col">
+            <h3 className="text-lg font-bold text-amber-900 text-center pb-2 mb-2 border-b border-amber-200/50 flex justify-between items-center">
                 <span>Bookmarked for Sadhana</span>
                  <div className="flex items-center gap-1">
                     <button
@@ -95,8 +108,7 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
             </h3>
             <div className="overflow-y-auto flex-grow pr-2 space-y-2 max-h-48">
                 {bookmarkedItems.map((item) => (
-                    // FIX: Corrected key generation to properly handle the discriminated union type and avoid a 'never' type error.
-                    <div key={`${item.type}-${'slokaNumber' in item.data ? item.data.slokaNumber : item.data.id}`} className="flex justify-between items-center bg-amber-50/70 rounded-md p-2 text-sm group">
+                    <div key={`${item.type}-${item.type === 'sloka' ? item.data.slokaNumber : item.data.id}`} className="flex justify-between items-center bg-amber-50/70 rounded-md p-2 text-sm group">
                         <button 
                             onClick={() => onNavigateToBookmark(item)}
                             className="flex-1 pr-2 text-left"
@@ -116,22 +128,30 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
                     </div>
                 ))}
             </div>
-            {slokasInBookmarks.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-amber-200 space-y-2">
-                     <button 
-                        onClick={() => onExplainRequest(slokasInBookmarks)}
-                        className="w-full text-sm text-white bg-amber-800 hover:bg-amber-900 rounded-full py-1.5 transition-colors"
-                    >
-                        Explain All Bija Mantras ({slokasInBookmarks.length})
-                    </button>
-                    <button 
-                        onClick={() => onCreateCombinedMantraRequest(slokasInBookmarks)}
-                        className="w-full text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-full py-1.5 transition-colors shadow"
-                    >
-                        Create Combined Mantra
-                    </button>
-                </div>
-            )}
+            <div className="mt-3 pt-3 border-t border-amber-200/50 space-y-2">
+                {hasSlokas && (
+                    <>
+                        <button 
+                            onClick={() => onExplainRequest(slokasInBookmarks)}
+                            className="w-full text-sm text-white bg-amber-800 hover:bg-amber-900 rounded-full py-1.5 transition-colors"
+                        >
+                            Explain All Bija Mantras ({slokasInBookmarks.length})
+                        </button>
+                        <button 
+                            onClick={() => onCreateCombinedMantraRequest(slokasInBookmarks)}
+                            className="w-full text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 rounded-full py-1.5 transition-colors shadow"
+                        >
+                            Create Combined Mantra
+                        </button>
+                    </>
+                )}
+                <button
+                    onClick={onClearAll}
+                    className="w-full text-sm font-semibold text-red-700 bg-red-100 hover:bg-red-200 rounded-full py-1.5 transition-colors"
+                >
+                    Clear All ({bookmarkedItems.length})
+                </button>
+            </div>
         </div>
     );
 };

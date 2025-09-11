@@ -22,17 +22,25 @@ import BookmarkToggleButton from './components/BookmarkToggleButton';
 import HowToUseModal from './components/HowToUseModal';
 import AudioLibrary from './components/AudioLibrary';
 import ResearchSummaries from './components/ResearchSummaries';
+import Preloader from './components/Preloader';
 import { findMantraForProblem, translateSearchResults, getApiUsage, API_LIMIT } from './services/geminiService';
 import { SLOKA_DATA } from './constants/slokaData';
 import { VEDIC_REMEDIES_DATA } from './constants/remediesData';
 import { TANTRA_BOOK_DATA } from './constants/tantraBookData';
 import { MANTRA_BOOK_DATA } from './constants/mantraBookData';
 import { BUDDHIST_CHANTS_DATA } from './constants/buddhistChantsData';
+import { CATHOLIC_PRAYERS_DATA } from './constants/catholicPrayersData';
 import { AUDIO_TRACKS } from './constants/audioData';
 import { BACKGROUND_MUSIC_TRACKS } from './constants/backgroundMusicData';
 import BuddhistChantCard from './components/BuddhistChantCard';
 import BuddhistChants from './components/BuddhistChants';
-import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, MantraBookItem, BookmarkedItem, BuddhistChant, AudioTrack, BackgroundMusicTrack } from './types';
+import CatholicPrayers from './components/CatholicPrayers';
+import CatholicPrayerCard from './components/CatholicPrayerCard';
+import MeditationGuide from './components/MeditationGuide';
+// FIX: Import MeditationList to correctly render the meditation section.
+import MeditationList from './components/MeditationList';
+// FIX: Add MeditationGuideData to the type imports.
+import type { Sloka, SearchResult, VedicRemedy, TantraBookMantra, MantraBookItem, BookmarkedItem, BuddhistChant, CatholicPrayer, AudioTrack, BackgroundMusicTrack, MeditationGuideData } from './types';
 
 const LANGUAGES = ["English", "Sinhala", "Tamil", "Hindi", "Malayalam"];
 const CODE_LANG_MAP: { [key: string]: string } = {
@@ -42,25 +50,42 @@ const CODE_LANG_MAP: { [key: string]: string } = {
     'hi': 'Hindi',
     'ml': 'Malayalam'
 };
-type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'mantraBook' | 'buddhistChants' | 'listen' | 'aiChat' | 'research';
+type AppMode = 'find' | 'lookup' | 'vedic' | 'tantraBook' | 'mantraBook' | 'buddhistChants' | 'catholicPrayers' | 'listen' | 'aiChat' | 'research' | 'meditation';
 
 const formatTitleForDisplay = (title: string): string => {
     return title.replace(/\s*-\s*\d+$/, '').trim();
 };
+
+const shouldShowPreloaderInitially = () => {
+    const PRELOADER_KEY = 'preloaderShownTimestamp';
+    const HIDE_DURATION = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+    const lastShownTimestamp = localStorage.getItem(PRELOADER_KEY);
+    const now = Date.now();
+
+    if (lastShownTimestamp && (now - parseInt(lastShownTimestamp, 10)) < HIDE_DURATION) {
+        return false; // Don't show if shown recently
+    }
+    return true; // Show otherwise
+};
+
 
 // --- Search Results Component ---
 interface SearchResultsProps {
   results: SearchResult[];
   bookmarkedItems: BookmarkedItem[];
   highlightedSections: Record<string, string[]>;
+  language: string; // FIX: Add language prop for translation.
   onToggleSloka: (sloka: Sloka) => void;
   onToggleRemedy: (remedy: VedicRemedy) => void;
   onToggleMantraBookItem: (item: MantraBookItem) => void;
   onToggleBuddhistChant: (item: BuddhistChant) => void;
+  onToggleCatholicPrayer: (item: CatholicPrayer) => void;
+  onToggleMeditation: (guide: MeditationGuideData) => void; // FIX: Add handler for meditation guides.
   onToggleSlokaSection: (sloka: Sloka, sectionTitle: string) => void;
   onToggleRemedySection: (remedy: VedicRemedy, sectionTitle: string) => void;
   onToggleMantraBookSection: (item: MantraBookItem, sectionTitle: string) => void;
   onToggleBuddhistChantSection: (item: BuddhistChant, sectionTitle: string) => void;
+  onToggleCatholicPrayerSection: (item: CatholicPrayer, sectionTitle: string) => void;
   onExplainRequest: (slokas: Sloka[]) => void;
   onAnalyzeRequest: (sloka: Sloka) => void;
 }
@@ -73,9 +98,9 @@ const ChevronDownIcon = () => (
 
 const SearchResults: React.FC<SearchResultsProps> = (props) => {
     const { 
-        results, bookmarkedItems, highlightedSections, 
-        onToggleSloka, onToggleRemedy, onToggleMantraBookItem, onToggleBuddhistChant,
-        onToggleSlokaSection, onToggleRemedySection, onToggleMantraBookSection, onToggleBuddhistChantSection,
+        results, bookmarkedItems, highlightedSections, language,
+        onToggleSloka, onToggleRemedy, onToggleMantraBookItem, onToggleBuddhistChant, onToggleCatholicPrayer, onToggleMeditation,
+        onToggleSlokaSection, onToggleRemedySection, onToggleMantraBookSection, onToggleBuddhistChantSection, onToggleCatholicPrayerSection,
         onExplainRequest, onAnalyzeRequest 
     } = props;
     
@@ -87,6 +112,9 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                 case 'remedy': key = `remedy_${result.data.id}`; break;
                 case 'mantraBook': key = `mantraBook_${result.data.id}`; break;
                 case 'buddhistChant': key = `buddhistChant_${result.data.id}`; break;
+                case 'catholicPrayer': key = `catholicPrayer_${result.data.id}`; break;
+                // FIX: Add case for meditation.
+                case 'meditation': key = `meditation_${result.data.id}`; break;
                 default: return false;
             }
             return highlightedSections && highlightedSections[key];
@@ -111,6 +139,9 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
             case 'remedy': highlightKey = `remedy_${result.data.id}`; break;
             case 'mantraBook': highlightKey = `mantraBook_${result.data.id}`; break;
             case 'buddhistChant': highlightKey = `buddhistChant_${result.data.id}`; break;
+            case 'catholicPrayer': highlightKey = `catholicPrayer_${result.data.id}`; break;
+            // FIX: Add case for meditation.
+            case 'meditation': highlightKey = `meditation_${result.data.id}`; break;
         }
 
         switch (result.type) {
@@ -122,6 +153,11 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                 return <div className="p-0 md:p-0"><MantraBookCard mantra={result.data} onToggleSelect={() => onToggleMantraBookItem(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleMantraBookSection(result.data, title)} /></div>;
             case 'buddhistChant':
                 return <div className="p-0 md:p-0"><BuddhistChantCard chant={result.data} onToggleSelect={() => onToggleBuddhistChant(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleBuddhistChantSection(result.data, title)} /></div>;
+            case 'catholicPrayer':
+                return <div className="p-0 md:p-0"><CatholicPrayerCard prayer={result.data} onToggleSelect={() => onToggleCatholicPrayer(result.data)} isSelected={isBookmarked(result)} bookmarkedSections={bookmarkedSections} highlightedSections={highlightedSections[highlightKey] || []} onToggleSectionBookmark={(title) => onToggleCatholicPrayerSection(result.data, title)} /></div>;
+            // FIX: Add case for meditation.
+            case 'meditation':
+                return <div className="p-0 md:p-0"><MeditationGuide guide={result.data.translations[language] || result.data.translations['English']} onToggleSelect={() => onToggleMeditation(result.data)} isSelected={isBookmarked(result)} /></div>;
         }
     }
 
@@ -160,6 +196,19 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                         title = result.data.title;
                         identifier = `Chant #${key}`;
                         highlightKey = `buddhistChant_${key}`;
+                        break;
+                    case 'catholicPrayer':
+                        key = result.data.id;
+                        title = result.data.title;
+                        identifier = `Prayer #${key}`;
+                        highlightKey = `catholicPrayer_${key}`;
+                        break;
+                    // FIX: Add case for meditation.
+                    case 'meditation':
+                        key = result.data.id;
+                        title = result.data.title;
+                        identifier = `Meditation #${key}`;
+                        highlightKey = `meditation_${key}`;
                         break;
                 }
 
@@ -228,6 +277,26 @@ const SearchResults: React.FC<SearchResultsProps> = (props) => {
                                           onToggleSectionBookmark={(title) => onToggleBuddhistChantSection(result.data, title)}
                                         />
                                     </div>
+                                ) : result.type === 'catholicPrayer' ? (
+                                    <div className="p-6 md:p-8">
+                                        <CatholicPrayerCard
+                                          prayer={result.data}
+                                          onToggleSelect={() => onToggleCatholicPrayer(result.data)}
+                                          isSelected={isSelected}
+                                          bookmarkedSections={bookmarkedSections}
+                                          highlightedSections={highlightedSectionsList}
+                                          onToggleSectionBookmark={(title) => onToggleCatholicPrayerSection(result.data, title)}
+                                        />
+                                    </div>
+                                // FIX: Add render case for meditation.
+                                ) : result.type === 'meditation' ? (
+                                    <div className="p-6 md:p-8">
+                                        <MeditationGuide
+                                            guide={result.data.translations[language] || result.data.translations['English']}
+                                            onToggleSelect={() => onToggleMeditation(result.data)}
+                                            isSelected={isSelected}
+                                        />
+                                    </div>
                                 ) : null}
                             </div>
                         )}
@@ -263,12 +332,13 @@ const App: React.FC = () => {
   const initialViewTargetRef = useRef(initialViewTarget);
   initialViewTargetRef.current = initialViewTarget;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [areFloatingButtonsVisible, setAreFloatingButtonsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const [isBgMusicPlaying, setIsBgMusicPlaying] = useState(false);
   const [currentBgTrack, setCurrentBgTrack] = useState<BackgroundMusicTrack>(BACKGROUND_MUSIC_TRACKS[0]);
   const bgAudioRef = useRef<HTMLAudioElement>(null);
   const [apiUsage, setApiUsage] = useState({ count: 0, limit: API_LIMIT });
+  const [showPreloader, setShowPreloader] = useState(shouldShowPreloaderInitially());
+  const [isPreloaderHiding, setIsPreloaderHiding] = useState(false);
 
 
   const [showBookmarkPanel, setShowBookmarkPanel] = useState(true);
@@ -277,6 +347,91 @@ const App: React.FC = () => {
   const handleApiUsageUpdate = useCallback(() => {
     setApiUsage(getApiUsage());
   }, []);
+
+  // Effect for preloader
+  useEffect(() => {
+    if (!showPreloader) {
+        // If preloader is skipped on load, just clean up the styles tag.
+        const preloaderStyles = document.getElementById('preloader-styles');
+        if (preloaderStyles) {
+            preloaderStyles.remove();
+        }
+        return;
+    }
+  
+    // If we are showing the preloader, run the animation timers.
+    const PRELOADER_KEY = 'preloaderShownTimestamp';
+    const now = Date.now();
+
+    const timer1 = setTimeout(() => {
+        setIsPreloaderHiding(true);
+    }, 3500);
+
+    const timer2 = setTimeout(() => {
+        setShowPreloader(false);
+        localStorage.setItem(PRELOADER_KEY, String(now)); // Set timestamp after showing
+        
+        // Remove preloader styles from the DOM to prevent any lingering animations/styles
+        const preloaderStyles = document.getElementById('preloader-styles');
+        if (preloaderStyles) {
+            preloaderStyles.remove();
+        }
+    }, 4000); 
+
+    return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+    };
+  }, [showPreloader]); // Run this effect when showPreloader state is determined.
+
+  // Effect for reactive background
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+        document.body.style.setProperty('--x', e.clientX.toString());
+        document.body.style.setProperty('--y', e.clientY.toString());
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // Effect for Bija burst on click
+  useEffect(() => {
+      const createBijaBurst = (e: MouseEvent) => {
+          const bijas = ['ऐं', 'ह्रीं', 'क्लीं', 'श्रीं', 'दुं', 'सौः', 'रं', 'यं'];
+          const burstCount = 8;
+          
+          for (let i = 0; i < burstCount; i++) {
+              const particle = document.createElement('span');
+              particle.classList.add('bija-burst');
+              
+              particle.style.left = `${e.clientX}px`;
+              particle.style.top = `${e.clientY}px`;
+              particle.textContent = bijas[Math.floor(Math.random() * bijas.length)];
+
+              const angle = Math.random() * Math.PI * 2;
+              const distance = Math.random() * 60 + 40; // 40px to 100px
+              const tx = Math.cos(angle) * distance;
+              const ty = Math.sin(angle) * distance;
+              const rotation = Math.random() * 360 - 180;
+
+              particle.style.setProperty('--tx', `${tx}px`);
+              particle.style.setProperty('--ty', `${ty}px`);
+              particle.style.setProperty('--r', `${rotation}deg`);
+
+              document.body.appendChild(particle);
+
+              setTimeout(() => {
+                  particle.remove();
+              }, 700);
+          }
+      };
+
+      document.addEventListener('click', createBijaBurst);
+
+      return () => {
+          document.removeEventListener('click', createBijaBurst);
+      };
+  }, []); // Run only once on mount
 
   // Effect to lock body scroll when mobile nav is open
   useEffect(() => {
@@ -290,19 +445,47 @@ const App: React.FC = () => {
     };
 }, [isMobileNavOpen]);
 
-  // Effect to show/hide floating buttons on scroll
+  // Effect to show/hide floating buttons on scroll without causing re-renders
   useEffect(() => {
+    const mobileNav = document.getElementById('mobile-nav-toggle');
+    const musicPlayer = document.getElementById('floating-music-player');
+
     const handleScroll = () => {
         const currentScrollY = window.scrollY;
 
         if (isMobileNavOpen) return;
 
-        if (currentScrollY < 10) {
-            setAreFloatingButtonsVisible(true);
+        let isVisible: boolean;
+        if (currentScrollY <= 10) {
+            isVisible = true;
         } else if (currentScrollY > lastScrollY.current + 10) { // Scrolling down
-            setAreFloatingButtonsVisible(false);
+            isVisible = false;
         } else if (currentScrollY < lastScrollY.current - 5) { // Scrolling up
-            setAreFloatingButtonsVisible(true);
+            isVisible = true;
+        } else {
+            // Keep current state if scrolling slowly
+            lastScrollY.current = currentScrollY;
+            return;
+        }
+
+        if (mobileNav) {
+            if (isVisible) {
+                mobileNav.classList.remove('-translate-x-20', 'opacity-0');
+                mobileNav.classList.add('translate-x-0', 'opacity-100');
+            } else {
+                mobileNav.classList.remove('translate-x-0', 'opacity-100');
+                mobileNav.classList.add('-translate-x-20', 'opacity-0');
+            }
+        }
+
+        if (musicPlayer) {
+            if (isVisible) {
+                musicPlayer.classList.remove('-translate-x-full', 'opacity-0');
+                musicPlayer.classList.add('translate-x-0', 'opacity-100');
+            } else {
+                musicPlayer.classList.remove('translate-x-0', 'opacity-100');
+                musicPlayer.classList.add('-translate-x-full', 'opacity-0');
+            }
         }
         
         lastScrollY.current = currentScrollY;
@@ -416,6 +599,21 @@ const App: React.FC = () => {
         });
     }
 
+    const catholicPrayerIds = urlParams.get('catholic')?.split(',').map(Number).filter(n => !isNaN(n));
+    if (catholicPrayerIds) {
+        catholicPrayerIds.forEach(id => {
+            const item = CATHOLIC_PRAYERS_DATA.find(t => t.id === id);
+            if (item) {
+                const sectionsParam = urlParams.get(`cp${id}_sections`);
+                const sections = sectionsParam ? sectionsParam.split(',').map(decodeURIComponent) : undefined;
+                loadedBookmarks.push({ type: 'catholicPrayer', data: item, sections });
+                if (sections) {
+                    loadedHighlights[`catholicPrayer_${id}`] = sections;
+                }
+            }
+        });
+    }
+
     const audioIds = urlParams.get('audio')?.split(',');
     if (audioIds) {
         audioIds.forEach(id => {
@@ -433,6 +631,7 @@ const App: React.FC = () => {
         
         // Set initial view with priority
         const firstAudio = loadedBookmarks.find(i => i.type === 'audio');
+        const firstCatholicPrayer = loadedBookmarks.find(i => i.type === 'catholicPrayer');
         const firstBuddhistChant = loadedBookmarks.find(i => i.type === 'buddhistChant');
         const firstRemedy = loadedBookmarks.find(i => i.type === 'remedy');
         const firstTantra = loadedBookmarks.find(i => i.type === 'tantra');
@@ -442,6 +641,9 @@ const App: React.FC = () => {
         if (firstAudio) {
             setMode('listen');
             setInitialViewTarget({ mode: 'listen', id: (firstAudio.data as AudioTrack).id });
+        } else if (firstCatholicPrayer) {
+            setMode('catholicPrayers');
+            setInitialViewTarget({ mode: 'catholicPrayers', id: (firstCatholicPrayer.data as CatholicPrayer).id });
         } else if (firstBuddhistChant) {
             setMode('buddhistChants');
             setInitialViewTarget({ mode: 'buddhistChants', id: (firstBuddhistChant.data as BuddhistChant).id });
@@ -523,6 +725,9 @@ const App: React.FC = () => {
                 } else if (item.source === 'Buddhist Chants') {
                     const chant = BUDDHIST_CHANTS_DATA.find(c => c.id === item.identifier);
                     return chant ? { type: 'buddhistChant' as const, data: chant } : null;
+                } else if (item.source === 'Catholic Prayers') {
+                    const prayer = CATHOLIC_PRAYERS_DATA.find(p => p.id === item.identifier);
+                    return prayer ? { type: 'catholicPrayer' as const, data: prayer } : null;
                 }
                 return null; // Handle potential unknown source
             }).filter(item => item !== null) as SearchResult[];
@@ -649,6 +854,36 @@ const App: React.FC = () => {
       }
   };
   
+  const handleToggleCatholicPrayer = (prayerToToggle: CatholicPrayer) => {
+    const existingIndex = bookmarkedItems.findIndex(item =>
+        item.type === 'catholicPrayer' && item.data.id === prayerToToggle.id
+    );
+
+    if (existingIndex > -1) {
+        setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+    } else {
+        const newItem: BookmarkedItem = { type: 'catholicPrayer', data: prayerToToggle };
+        setBookmarkedItems(items => [...items, newItem]);
+        setShowBookmarkPanel(true);
+    }
+  };
+
+  // FIX: Add handler for toggling meditation guide bookmarks.
+  const handleToggleMeditationGuide = (guideToToggle: MeditationGuideData) => {
+    const existingIndex = bookmarkedItems.findIndex(item => 
+        item.type === 'meditation' && item.data.id === guideToToggle.id
+    );
+
+    if (existingIndex > -1) {
+        setBookmarkedItems(items => items.filter((_, index) => index !== existingIndex));
+    } else {
+        const newItem: BookmarkedItem = { type: 'meditation', data: guideToToggle };
+        setBookmarkedItems(items => [...items, newItem]);
+        setShowBookmarkPanel(true);
+    }
+  };
+
+
   const handleToggleAudioBookmark = (trackToToggle: AudioTrack) => {
     const existingIndex = bookmarkedItems.findIndex(item =>
         item.type === 'audio' && item.data.id === trackToToggle.id
@@ -663,7 +898,7 @@ const App: React.FC = () => {
     }
   };
 
-  const createSectionToggleHandler = <T extends Sloka | VedicRemedy | TantraBookMantra | MantraBookItem | BuddhistChant>(
+  const createSectionToggleHandler = <T extends Sloka | VedicRemedy | TantraBookMantra | MantraBookItem | BuddhistChant | CatholicPrayer>(
     itemData: T,
     itemType: BookmarkedItem['type']
   ) => (sectionTitle: string) => {
@@ -737,6 +972,15 @@ const App: React.FC = () => {
                 case 'buddhistChant':
                     setMode('buddhistChants');
                     setInitialViewTarget({ mode: 'buddhistChants', id: item.data.id });
+                    break;
+                case 'catholicPrayer':
+                    setMode('catholicPrayers');
+                    setInitialViewTarget({ mode: 'catholicPrayers', id: item.data.id });
+                    break;
+                // FIX: Add case for meditation.
+                case 'meditation':
+                    setMode('meditation');
+                    setInitialViewTarget({ mode: 'meditation', id: item.data.id });
                     break;
                 case 'audio':
                     setMode('listen');
@@ -815,344 +1059,376 @@ const App: React.FC = () => {
     );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100 text-slate-800 p-4 sm:p-8 flex flex-col items-center">
-      
-      <audio
-        ref={bgAudioRef}
-        key={currentBgTrack.src}
-        src={currentBgTrack.src}
-        loop
-        preload="auto"
-      />
+    <>
+      {showPreloader && <Preloader isHiding={isPreloaderHiding} />}
+      <div className={`min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100 text-slate-800 p-4 sm:p-8 flex flex-col items-center ${!showPreloader ? 'animate-fade-in' : 'opacity-0'}`}>
+        
+        <audio
+          ref={bgAudioRef}
+          key={currentBgTrack.src}
+          src={currentBgTrack.src}
+          loop
+          preload="auto"
+        />
 
-      {/* Mobile Nav Button */}
-      <button
-          onClick={() => setIsMobileNavOpen(true)}
-          className={`md:hidden fixed top-5 left-5 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-white/30 transition-all duration-300 ease-in-out ${areFloatingButtonsVisible ? 'translate-x-0 opacity-100' : '-translate-x-20 opacity-0'}`}
-          aria-label="Open navigation menu"
-          aria-hidden={!areFloatingButtonsVisible}
-      >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-      </button>
+        {/* Mobile Nav Button */}
+        <button
+            id="mobile-nav-toggle"
+            onClick={() => setIsMobileNavOpen(true)}
+            className="md:hidden fixed top-5 left-5 z-50 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg border border-white/30 transition-all duration-300 ease-in-out translate-x-0 opacity-100"
+            aria-label="Open navigation menu"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
 
-      {/* Mobile Nav Panel */}
-      {isMobileNavOpen && (
-            <div className="md:hidden fixed inset-0 z-[60] flex" role="dialog" aria-modal="true">
-              {/* Backdrop */}
-              <div className="fixed inset-0 bg-black/50 animate-fade-in" onClick={() => setIsMobileNavOpen(false)}></div>
-              
-              {/* Sidebar */}
-              <div className="relative w-72 bg-amber-50 shadow-xl flex flex-col p-6 animate-slide-in-left">
-                  <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold text-amber-900">Navigation</h2>
-                      <button onClick={() => setIsMobileNavOpen(false)} aria-label="Close navigation menu" className="p-1 text-amber-700 hover:text-red-600">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                      </button>
-                  </div>
-                  <nav className="flex flex-col space-y-2">
-                      {renderMobileNavButton('find', 'Find Mantra for Problem')}
-                      {renderMobileNavButton('lookup', 'Lookup Sloka')}
-                      {renderMobileNavButton('vedic', 'Vedic Remedies')}
-                      {renderMobileNavButton('mantraBook', 'Mantra Compendium')}
-                      {renderMobileNavButton('tantraBook', 'Tantric Practices')}
-                      {renderMobileNavButton('buddhistChants', 'Buddhist Chants')}
-                      {renderMobileNavButton('listen', 'Listen to Chants')}
-                      {renderMobileNavButton('aiChat', 'AI Chat Guide')}
-                      {renderMobileNavButton('research', 'Research')}
-                  </nav>
+        {/* Mobile Nav Panel */}
+        {isMobileNavOpen && (
+              <div className="md:hidden fixed inset-0 z-[60] flex" role="dialog" aria-modal="true">
+                {/* Backdrop */}
+                <div className="fixed inset-0 bg-black/50 animate-fade-in" onClick={() => setIsMobileNavOpen(false)}></div>
+                
+                {/* Sidebar */}
+                <div className="relative w-72 bg-amber-50 shadow-xl flex flex-col p-6 animate-slide-in-left">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-amber-900">Navigation</h2>
+                        <button onClick={() => setIsMobileNavOpen(false)} aria-label="Close navigation menu" className="p-1 text-amber-700 hover:text-red-600">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <nav className="flex flex-col space-y-2">
+                        {renderMobileNavButton('find', 'Find Mantra for Problem')}
+                        {renderMobileNavButton('lookup', 'Lookup Sloka')}
+                        {renderMobileNavButton('vedic', 'Vedic Remedies')}
+                        {renderMobileNavButton('mantraBook', 'Mantra Compendium')}
+                        {renderMobileNavButton('tantraBook', 'Tantric Practices')}
+                        {renderMobileNavButton('buddhistChants', 'Buddhist Chants')}
+                        {renderMobileNavButton('catholicPrayers', 'Catholic Prayers')}
+                        {renderMobileNavButton('meditation', 'Meditation')}
+                        {renderMobileNavButton('listen', 'Listen to Chants')}
+                        {renderMobileNavButton('aiChat', 'AI Chat Guide')}
+                        {renderMobileNavButton('research', 'Research')}
+                    </nav>
+                </div>
+            </div>
+        )}
+        
+        <main className="w-full">
+          <Header />
+           <div className="text-center mb-4 animate-landing animate-fade-in flex justify-center items-center gap-4" style={{ animationDelay: '0.4s' }}>
+               <button
+                  onClick={() => setShowIntroModal(true)}
+                  className="text-amber-800 hover:text-amber-900 underline transition-colors"
+                  aria-label="Learn more about Soundarya Lahari"
+               >
+                  What is Soundarya Lahari?
+               </button>
+               <span className="text-amber-300">|</span>
+               <button
+                  onClick={() => setShowHowToUseModal(true)}
+                  className="text-amber-800 hover:text-amber-900 underline transition-colors"
+                  aria-label="Learn how to use these mantras"
+               >
+                  How to Use These Mantras
+               </button>
+           </div>
+
+          <div className="hidden md:flex justify-center flex-wrap gap-2 md:gap-4 my-6">
+            {renderNavButton('find', 'Find Mantra for Problem', 0)}
+            {renderNavButton('lookup', 'Lookup Sloka', 1)}
+            {renderNavButton('vedic', 'Vedic Remedies', 2)}
+            {renderNavButton('mantraBook', 'Mantra Compendium', 3)}
+            {renderNavButton('tantraBook', 'Tantric Practices', 4)}
+            {renderNavButton('buddhistChants', 'Buddhist Chants', 5)}
+            {renderNavButton('catholicPrayers', 'Catholic Prayers', 6)}
+            {renderNavButton('meditation', 'Meditation', 7)}
+            {renderNavButton('listen', 'Listen to Chants', 8)}
+            {renderNavButton('aiChat', 'AI Chat Guide', 9)}
+            {renderNavButton('research', 'Research', 10)}
+          </div>
+
+          <div className="w-full max-w-2xl mx-auto mb-4 flex justify-center items-center flex-wrap gap-4 animate-landing animate-fade-in" style={{ animationDelay: '1.2s' }}>
+              <div>
+                <label htmlFor="language-select" className="text-amber-800 font-medium mr-2">Select Language:</label>
+                <select 
+                    id="language-select"
+                    value={language} 
+                    onChange={e => setLanguage(e.target.value)}
+                    className="p-2 border border-amber-300 rounded-lg shadow-sm bg-white/80 focus:ring-amber-500 focus:border-amber-500 text-sm"
+                    aria-label="Select language for results"
+                    disabled={isLoading}
+                >
+                    {LANGUAGES.map(lang => <option key={lang} value={lang}>{lang}</option>)}
+                </select>
+              </div>
+              <BookmarkManager
+                bookmarkedItems={bookmarkedItems}
+                language={language}
+              />
+              <div className="bg-white/80 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-full shadow-sm border border-amber-300/60" title={`Daily AI Interaction Count. Resets daily.`}>
+                  AI Usage: {apiUsage.count}/{apiUsage.limit}
               </div>
           </div>
-      )}
-      
-      <main className="w-full">
-        <Header />
-         <div className="text-center mb-4 animate-landing animate-fade-in flex justify-center items-center gap-4" style={{ animationDelay: '0.4s' }}>
-             <button
-                onClick={() => setShowIntroModal(true)}
-                className="text-amber-800 hover:text-amber-900 underline transition-colors"
-                aria-label="Learn more about Soundarya Lahari"
-             >
-                What is Soundarya Lahari?
-             </button>
-             <span className="text-amber-300">|</span>
-             <button
-                onClick={() => setShowHowToUseModal(true)}
-                className="text-amber-800 hover:text-amber-900 underline transition-colors"
-                aria-label="Learn how to use these mantras"
-             >
-                How to Use These Mantras
-             </button>
-         </div>
-
-        <div className="hidden md:flex justify-center flex-wrap gap-2 md:gap-4 my-6">
-          {renderNavButton('find', 'Find Mantra for Problem', 0)}
-          {renderNavButton('lookup', 'Lookup Sloka', 1)}
-          {renderNavButton('vedic', 'Vedic Remedies', 2)}
-          {renderNavButton('mantraBook', 'Mantra Compendium', 3)}
-          {renderNavButton('tantraBook', 'Tantric Practices', 4)}
-          {renderNavButton('buddhistChants', 'Buddhist Chants', 5)}
-          {renderNavButton('listen', 'Listen to Chants', 6)}
-          {renderNavButton('aiChat', 'AI Chat Guide', 7)}
-          {renderNavButton('research', 'Research', 8)}
-        </div>
-
-        <div className="w-full max-w-2xl mx-auto mb-4 flex justify-center items-center flex-wrap gap-4 animate-landing animate-fade-in" style={{ animationDelay: '1.2s' }}>
-            <div>
-              <label htmlFor="language-select" className="text-amber-800 font-medium mr-2">Select Language:</label>
-              <select 
-                  id="language-select"
-                  value={language} 
-                  onChange={e => setLanguage(e.target.value)}
-                  className="p-2 border border-amber-300 rounded-lg shadow-sm bg-white/80 focus:ring-amber-500 focus:border-amber-500 text-sm"
-                  aria-label="Select language for results"
-                  disabled={isLoading}
-              >
-                  {LANGUAGES.map(lang => <option key={lang} value={lang}>{lang}</option>)}
-              </select>
-            </div>
-            <BookmarkManager
-              bookmarkedItems={bookmarkedItems}
-              language={language}
-            />
-            <div className="bg-white/80 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-full shadow-sm border border-amber-300/60" title={`Daily AI Interaction Count. Resets daily.`}>
-                AI Usage: {apiUsage.count}/{apiUsage.limit}
-            </div>
-        </div>
-        
-        {mode === 'find' && (
-          <>
-            <SearchBar 
-                onSearch={handleSearch} 
-                onLocalSearch={handleLocalSearch}
-                isLoading={isLoading} 
-            />
-            <div className="mt-8 space-y-8">
-              {isLoading && <LoadingSpinner />}
-              {error && !isLoading && <ErrorMessage message={error} />}
-              {mantraResults && mantraResults.length > 0 && !isLoading && (
-                <SearchResults
-                  results={mantraResults}
+          
+          {mode === 'find' && (
+            <>
+              <SearchBar 
+                  onSearch={handleSearch} 
+                  onLocalSearch={handleLocalSearch}
+                  isLoading={isLoading} 
+              />
+              <div className="mt-8 space-y-8">
+                {isLoading && <LoadingSpinner />}
+                {error && !isLoading && <ErrorMessage message={error} />}
+                {mantraResults && mantraResults.length > 0 && !isLoading && (
+                  <SearchResults
+                    results={mantraResults}
+                    bookmarkedItems={bookmarkedItems}
+                    highlightedSections={highlightedSections}
+                    language={language}
+                    onToggleSloka={handleToggleSloka}
+                    onToggleRemedy={handleToggleRemedy}
+                    onToggleMantraBookItem={handleToggleMantraBookItem}
+                    onToggleBuddhistChant={handleToggleBuddhistChant}
+                    onToggleCatholicPrayer={handleToggleCatholicPrayer}
+                    onToggleMeditation={handleToggleMeditationGuide}
+                    onToggleSlokaSection={(sloka, title) => createSectionToggleHandler(sloka, 'sloka')(title)}
+                    onToggleRemedySection={(remedy, title) => createSectionToggleHandler(remedy, 'remedy')(title)}
+                    onToggleMantraBookSection={(item, title) => createSectionToggleHandler(item, 'mantraBook')(title)}
+                    onToggleBuddhistChantSection={(item, title) => createSectionToggleHandler(item, 'buddhistChant')(title)}
+                    onToggleCatholicPrayerSection={(item, title) => createSectionToggleHandler(item, 'catholicPrayer')(title)}
+                    onExplainRequest={handleExplainRequest}
+                    onAnalyzeRequest={handleAnalyzeRequest}
+                  />
+                )}
+                {mantraResults && mantraResults.length === 0 && !isLoading && (
+                   <div className="text-center text-amber-700 mt-16 text-lg animate-fade-in">
+                      <p>No specific mantra found for your query.</p>
+                      <p className="mt-2 text-base">Please try rephrasing your problem or explore the other sections.</p>
+                  </div>
+                )}
+                {!isLoading && !error && !mantraResults && !untranslatedMantraResults && (
+                   <div className="text-center text-amber-700 mt-16 text-lg">
+                      <p>Welcome to your guide to divine mantras.</p>
+                      <p className="mt-2 text-base">Describe your problem above or select an intention to begin your journey.</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+          
+          {mode === 'lookup' && (
+             <MantraLookup 
                   bookmarkedItems={bookmarkedItems}
                   highlightedSections={highlightedSections}
-                  onToggleSloka={handleToggleSloka}
-                  onToggleRemedy={handleToggleRemedy}
-                  onToggleMantraBookItem={handleToggleMantraBookItem}
-                  onToggleBuddhistChant={handleToggleBuddhistChant}
-                  onToggleSlokaSection={(sloka, title) => createSectionToggleHandler(sloka, 'sloka')(title)}
-                  onToggleRemedySection={(remedy, title) => createSectionToggleHandler(remedy, 'remedy')(title)}
-                  onToggleMantraBookSection={(item, title) => createSectionToggleHandler(item, 'mantraBook')(title)}
-                  onToggleBuddhistChantSection={(item, title) => createSectionToggleHandler(item, 'buddhistChant')(title)}
+                  onToggleSelect={handleToggleSloka}
+                  onToggleSectionBookmark={createSectionToggleHandler}
                   onExplainRequest={handleExplainRequest}
                   onAnalyzeRequest={handleAnalyzeRequest}
-                />
-              )}
-              {mantraResults && mantraResults.length === 0 && !isLoading && (
-                 <div className="text-center text-amber-700 mt-16 text-lg animate-fade-in">
-                    <p>No specific mantra found for your query.</p>
-                    <p className="mt-2 text-base">Please try rephrasing your problem or explore the other sections.</p>
-                </div>
-              )}
-              {!isLoading && !error && !mantraResults && !untranslatedMantraResults && (
-                 <div className="text-center text-amber-700 mt-16 text-lg">
-                    <p>Welcome to your guide to divine mantras.</p>
-                    <p className="mt-2 text-base">Describe your problem above or select an intention to begin your journey.</p>
-                </div>
-              )}
-            </div>
-          </>
-        )}
+                  language={language}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'lookup' ? initialViewTargetRef.current.id as number : null}
+                  onApiUse={handleApiUsageUpdate}
+              />
+          )}
+
+          {mode === 'vedic' && (
+             <VedicRemedies 
+                  bookmarkedItems={bookmarkedItems}
+                  highlightedSections={highlightedSections}
+                  onToggleSelect={handleToggleRemedy}
+                  onToggleSectionBookmark={createSectionToggleHandler}
+                  language={language}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'vedic' ? initialViewTargetRef.current.id as number : null}
+                  onApiUse={handleApiUsageUpdate}
+             />
+          )}
+          
+          {mode === 'mantraBook' && (
+             <MantraBook 
+                  bookmarkedItems={bookmarkedItems}
+                  highlightedSections={highlightedSections}
+                  onToggleSelect={handleToggleMantraBookItem}
+                  onToggleSectionBookmark={createSectionToggleHandler}
+                  language={language}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'mantraBook' ? initialViewTargetRef.current.id as number : null}
+                  onApiUse={handleApiUsageUpdate}
+             />
+          )}
+
+          {mode === 'tantraBook' && (
+             <TantraBook 
+                  bookmarkedItems={bookmarkedItems}
+                  highlightedSections={highlightedSections}
+                  onToggleSelect={handleToggleTantraMantra}
+                  onToggleSectionBookmark={createSectionToggleHandler}
+                  language={language}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'tantraBook' ? initialViewTargetRef.current.id as number : null}
+                  onApiUse={handleApiUsageUpdate}
+             />
+          )}
+
+          {mode === 'buddhistChants' && (
+             <BuddhistChants
+                  bookmarkedItems={bookmarkedItems}
+                  highlightedSections={highlightedSections}
+                  onToggleSelect={handleToggleBuddhistChant}
+                  onToggleSectionBookmark={createSectionToggleHandler}
+                  language={language}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'buddhistChants' ? initialViewTargetRef.current.id as number : null}
+                  onApiUse={handleApiUsageUpdate}
+             />
+          )}
+
+          {mode === 'catholicPrayers' && (
+             <CatholicPrayers
+                  bookmarkedItems={bookmarkedItems}
+                  highlightedSections={highlightedSections}
+                  onToggleSelect={handleToggleCatholicPrayer}
+                  onToggleSectionBookmark={createSectionToggleHandler}
+                  language={language}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'catholicPrayers' ? initialViewTargetRef.current.id as number : null}
+                  onApiUse={handleApiUsageUpdate}
+             />
+          )}
+
+          {mode === 'meditation' && (
+              <MeditationList
+                  bookmarkedItems={bookmarkedItems}
+                  onToggleSelect={handleToggleMeditationGuide}
+                  language={language}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'meditation' ? initialViewTargetRef.current.id as number : null}
+              />
+          )}
+
+          {mode === 'listen' && (
+              <AudioLibrary
+                  bookmarkedItems={bookmarkedItems}
+                  onToggleBookmark={handleToggleAudioBookmark}
+                  initialSelectedId={initialViewTargetRef.current?.mode === 'listen' ? initialViewTargetRef.current.id as string : null}
+              />
+          )}
+          
+          {mode === 'aiChat' && (
+              <AIChat language={language} onApiUse={handleApiUsageUpdate} />
+          )}
+
+          {mode === 'research' && (
+              <ResearchSummaries initialLanguage={language} />
+          )}
+        </main>
         
-        {mode === 'lookup' && (
-           <MantraLookup 
-                bookmarkedItems={bookmarkedItems}
-                highlightedSections={highlightedSections}
-                onToggleSelect={handleToggleSloka}
-                onToggleSectionBookmark={createSectionToggleHandler}
-                onExplainRequest={handleExplainRequest}
-                onAnalyzeRequest={handleAnalyzeRequest}
-                language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'lookup' ? initialViewTargetRef.current.id as number : null}
-                onApiUse={handleApiUsageUpdate}
-            />
+        {/* Floating Background Music Player */}
+          <div
+              id="floating-music-player"
+              className={`fixed bottom-5 left-5 z-40 flex items-end gap-2 transition-all duration-300 ease-in-out group translate-x-0 opacity-100`}
+          >
+              <div className="transition-all duration-300 ease-in-out max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-focus-within:max-w-xs group-focus-within:opacity-100 overflow-hidden">
+                  <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg p-2 space-y-1 w-48 mb-1">
+                      <p className="text-xs text-center font-semibold text-amber-800 px-2 pb-1">Ambient Sound</p>
+                      {BACKGROUND_MUSIC_TRACKS.map(track => (
+                          <button
+                              key={track.id}
+                              onClick={() => {
+                                  setCurrentBgTrack(track);
+                              }}
+                              className={`w-full text-left text-sm px-3 py-1.5 rounded-md transition-colors ${
+                                  currentBgTrack.id === track.id
+                                      ? 'bg-amber-200 text-amber-900 font-semibold'
+                                      : 'text-amber-700 hover:bg-amber-100'
+                              }`}
+                          >
+                              {track.name}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
+              <button
+                  onClick={toggleBgMusic}
+                  className="flex-shrink-0 flex items-center justify-center w-14 h-14 bg-white/70 backdrop-blur-md text-amber-800 rounded-full shadow-lg hover:bg-amber-100 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/80"
+                  aria-label={isBgMusicPlaying ? 'Pause background music' : 'Play background music'}
+              >
+                  {isBgMusicPlaying ? <PauseIcon /> : <PlayIcon />}
+                  {isBgMusicPlaying && (
+                      <div className="absolute inset-0 rounded-full border-2 border-amber-500 animate-ping-slow opacity-75"></div>
+                  )}
+              </button>
+          </div>
+
+
+        {bookmarkedItems.length > 0 && showBookmarkPanel && (
+          <CombinedSelections 
+              bookmarkedItems={bookmarkedItems}
+              onRemoveBookmark={handleRemoveBookmark}
+              onExplainRequest={handleExplainRequest}
+              onCreateCombinedMantraRequest={handleCreateCombinedMantraRequest}
+              onClose={() => setShowBookmarkPanel(false)}
+              onNavigateToBookmark={handleNavigateToBookmark}
+              onClearAll={handleClearAllBookmarks}
+          />
         )}
 
-        {mode === 'vedic' && (
-           <VedicRemedies 
-                bookmarkedItems={bookmarkedItems}
-                highlightedSections={highlightedSections}
-                onToggleSelect={handleToggleRemedy}
-                onToggleSectionBookmark={createSectionToggleHandler}
-                language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'vedic' ? initialViewTargetRef.current.id as number : null}
-                onApiUse={handleApiUsageUpdate}
-           />
-        )}
-        
-        {mode === 'mantraBook' && (
-           <MantraBook 
-                bookmarkedItems={bookmarkedItems}
-                highlightedSections={highlightedSections}
-                onToggleSelect={handleToggleMantraBookItem}
-                onToggleSectionBookmark={createSectionToggleHandler}
-                language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'mantraBook' ? initialViewTargetRef.current.id as number : null}
-                onApiUse={handleApiUsageUpdate}
-           />
+        {bookmarkedItems.length > 0 && !showBookmarkPanel && (
+          <BookmarkToggleButton
+              count={bookmarkedItems.length}
+              onClick={() => setShowBookmarkPanel(true)}
+          />
         )}
 
-        {mode === 'tantraBook' && (
-           <TantraBook 
-                bookmarkedItems={bookmarkedItems}
-                highlightedSections={highlightedSections}
-                onToggleSelect={handleToggleTantraMantra}
-                onToggleSectionBookmark={createSectionToggleHandler}
-                language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'tantraBook' ? initialViewTargetRef.current.id as number : null}
-                onApiUse={handleApiUsageUpdate}
-           />
-        )}
-
-        {mode === 'buddhistChants' && (
-           <BuddhistChants
-                bookmarkedItems={bookmarkedItems}
-                highlightedSections={highlightedSections}
-                onToggleSelect={handleToggleBuddhistChant}
-                onToggleSectionBookmark={createSectionToggleHandler}
-                language={language}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'buddhistChants' ? initialViewTargetRef.current.id as number : null}
-                onApiUse={handleApiUsageUpdate}
-           />
-        )}
-
-        {mode === 'listen' && (
-            <AudioLibrary
-                bookmarkedItems={bookmarkedItems}
-                onToggleBookmark={handleToggleAudioBookmark}
-                initialSelectedId={initialViewTargetRef.current?.mode === 'listen' ? initialViewTargetRef.current.id as string : null}
-            />
-        )}
-        
-        {mode === 'aiChat' && (
-            <AIChat language={language} onApiUse={handleApiUsageUpdate} />
-        )}
-
-        {mode === 'research' && (
-            <ResearchSummaries initialLanguage={language} />
-        )}
-      </main>
-      
-      {/* Floating Background Music Player */}
-        <div
-            className={`fixed bottom-5 left-5 z-40 flex items-end gap-2 transition-all duration-300 ease-in-out group ${areFloatingButtonsVisible ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}
-            aria-hidden={!areFloatingButtonsVisible}
-        >
-            <div className="transition-all duration-300 ease-in-out max-w-0 opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-focus-within:max-w-xs group-focus-within:opacity-100 overflow-hidden">
-                <div className="bg-white/70 backdrop-blur-md rounded-xl shadow-lg p-2 space-y-1 w-48 mb-1">
-                    <p className="text-xs text-center font-semibold text-amber-800 px-2 pb-1">Ambient Sound</p>
-                    {BACKGROUND_MUSIC_TRACKS.map(track => (
-                        <button
-                            key={track.id}
-                            onClick={() => {
-                                setCurrentBgTrack(track);
-                            }}
-                            className={`w-full text-left text-sm px-3 py-1.5 rounded-md transition-colors ${
-                                currentBgTrack.id === track.id
-                                    ? 'bg-amber-200 text-amber-900 font-semibold'
-                                    : 'text-amber-700 hover:bg-amber-100'
-                            }`}
-                        >
-                            {track.name}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <button
-                onClick={toggleBgMusic}
-                className="flex-shrink-0 flex items-center justify-center w-14 h-14 bg-white/70 backdrop-blur-md text-amber-800 rounded-full shadow-lg hover:bg-amber-100 transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/80"
-                aria-label={isBgMusicPlaying ? 'Pause background music' : 'Play background music'}
-            >
-                {isBgMusicPlaying ? <PauseIcon /> : <PlayIcon />}
-                {isBgMusicPlaying && (
-                    <div className="absolute inset-0 rounded-full border-2 border-amber-500 animate-ping-slow opacity-75"></div>
-                )}
-            </button>
-        </div>
-
-
-      {bookmarkedItems.length > 0 && showBookmarkPanel && (
-        <CombinedSelections 
-            bookmarkedItems={bookmarkedItems}
-            onRemoveBookmark={handleRemoveBookmark}
-            onExplainRequest={handleExplainRequest}
-            onCreateCombinedMantraRequest={handleCreateCombinedMantraRequest}
-            onClose={() => setShowBookmarkPanel(false)}
-            onNavigateToBookmark={handleNavigateToBookmark}
-            onClearAll={handleClearAllBookmarks}
-        />
-      )}
-
-      {bookmarkedItems.length > 0 && !showBookmarkPanel && (
-        <BookmarkToggleButton
-            count={bookmarkedItems.length}
-            onClick={() => setShowBookmarkPanel(true)}
-        />
-      )}
-
-      {slokasToExplain && (
-        <BijaMantraExplainer
-          slokas={slokasToExplain}
-          onClose={handleCloseExplainer}
-          onApiUse={handleApiUsageUpdate}
-        />
-      )}
-      
-      {slokaToAnalyze && (
-        <SlokaAnalysisModal 
-          sloka={slokaToAnalyze}
-          language={language}
-          onClose={handleCloseAnalysis}
-          onApiUse={handleApiUsageUpdate}
-        />
-      )}
-
-      {showCombinedMantraCreator && (
-        <CombinedMantraModal
-            slokas={showCombinedMantraCreator}
-            language={language}
-            onClose={handleCloseCombinedMantraCreator}
+        {slokasToExplain && (
+          <BijaMantraExplainer
+            slokas={slokasToExplain}
+            onClose={handleCloseExplainer}
             onApiUse={handleApiUsageUpdate}
-        />
-      )}
+          />
+        )}
+        
+        {slokaToAnalyze && (
+          <SlokaAnalysisModal 
+            sloka={slokaToAnalyze}
+            language={language}
+            onClose={handleCloseAnalysis}
+            onApiUse={handleApiUsageUpdate}
+          />
+        )}
 
-      {showIntroModal && (
-        <IntroModal onClose={() => setShowIntroModal(false)} />
-      )}
-      
-      {showHowToUseModal && (
-        <HowToUseModal initialLanguage={language} onClose={() => setShowHowToUseModal(false)} />
-      )}
+        {showCombinedMantraCreator && (
+          <CombinedMantraModal
+              slokas={showCombinedMantraCreator}
+              language={language}
+              onClose={handleCloseCombinedMantraCreator}
+              onApiUse={handleApiUsageUpdate}
+          />
+        )}
 
-      <footer className="mt-auto pt-8 text-center text-amber-700/80 text-sm animate-landing animate-slide-in-up" style={{ animationDelay: '1.5s' }}>
-        <div className="mb-4 flex justify-center">
-            <ScreenshotButton />
-        </div>
-        <p>This tool is for spiritual guidance and exploration. Always consult with a qualified professional for serious life matters.</p>
-        <div className="flex justify-center items-center gap-4 mt-2">
-            <a href="https://ishanoshada.com/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">ishanoshada.com</a>
-            <span>|</span>
-            <a href="https://github.com/Ishanoshada/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">GitHub</a>
-        </div>
-         <p className="mt-2">
-            Website Source: <a href="https://github.com/Ishanoshada/Soundarya-Lahari-Mantra-Finder/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">GitHub Repository</a>
-        </p>
-        <p className="mt-2">&copy; 2025 Divine Guidance Systems</p>
-      </footer>
-    </div>
+        {showIntroModal && (
+          <IntroModal onClose={() => setShowIntroModal(false)} />
+        )}
+        
+        {showHowToUseModal && (
+          <HowToUseModal initialLanguage={language} onClose={() => setShowHowToUseModal(false)} />
+        )}
+
+        <footer className="mt-auto pt-8 text-center text-amber-700/80 text-sm animate-landing animate-slide-in-up" style={{ animationDelay: '1.5s' }}>
+          <div className="mb-4 flex justify-center">
+              <ScreenshotButton />
+          </div>
+          <p>This tool is for spiritual guidance and exploration. Always consult with a qualified professional for serious life matters.</p>
+          <div className="flex justify-center items-center gap-4 mt-2">
+              <a href="https://ishanoshada.com/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">ishanoshada.com</a>
+              <span>|</span>
+              <a href="https://github.com/Ishanoshada/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">GitHub</a>
+          </div>
+           <p className="mt-2">
+              Website Source: <a href="https://github.com/Ishanoshada/Soundarya-Lahari-Mantra-Finder/" target="_blank" rel="noopener noreferrer" className="hover:text-amber-600 underline transition-colors">GitHub Repository</a>
+          </p>
+          <p className="mt-2">&copy; 2025 Divine Guidance Systems</p>
+        </footer>
+      </div>
+    </>
   );
 };
 

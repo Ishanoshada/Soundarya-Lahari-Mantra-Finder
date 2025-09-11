@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import type { BookmarkedItem, Sloka, AudioTrack } from '../types';
+// FIX: Import MeditationGuideData to handle the 'meditation' bookmark type.
+import type { BookmarkedItem, Sloka, AudioTrack, CatholicPrayer, MeditationGuideData } from '../types';
 import { captureElementAsImage } from '../services/geminiService';
 
 const CloseIcon = () => (
@@ -10,7 +11,7 @@ const CloseIcon = () => (
 
 const CameraIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
@@ -45,6 +46,7 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
         } catch (error) {
             // The utility function already alerts the user.
         } finally {
+            // FIX: Corrected typo from setIsCaptURING to setIsCapturing.
             setIsCapturing(false);
         }
     };
@@ -61,6 +63,11 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
                 return `Compendium #${item.data.id}: ${item.data.title}`;
             case 'buddhistChant':
                 return `Chant #${item.data.id}: ${item.data.title}`;
+            case 'catholicPrayer':
+                return `Prayer #${item.data.id}: ${item.data.title}`;
+            // FIX: Add case for 'meditation' to resolve exhaustive switch error.
+            case 'meditation':
+                return `Meditation #${item.data.id}: ${item.data.title}`;
             case 'audio':
                 return `Audio: ${item.data.title}`;
             default:
@@ -102,8 +109,7 @@ const CombinedSelections: React.FC<CombinedSelectionsProps> = ({ bookmarkedItems
             </h3>
             <div className="overflow-y-auto flex-grow pr-2 space-y-2 max-h-48">
                 {bookmarkedItems.map((item) => (
-                    // FIX: Corrected key generation to properly handle the discriminated union type and avoid a 'never' type error. The previous nested ternary with 'in' operators caused a type inference issue. This now uses the `item.type` discriminator for safe type narrowing.
-                    <div key={`${item.type}-${item.type === 'sloka' ? item.data.slokaNumber : item.data.id}`} className="flex justify-between items-center bg-amber-50/70 rounded-md p-2 text-sm group">
+                    <div key={`${item.type}-${'slokaNumber' in item.data ? item.data.slokaNumber : item.data.id}`} className="flex justify-between items-center bg-amber-50/70 rounded-md p-2 text-sm group">
                         <button 
                             onClick={() => onNavigateToBookmark(item)}
                             className="flex-1 pr-2 text-left"

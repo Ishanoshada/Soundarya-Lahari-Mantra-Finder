@@ -16,7 +16,7 @@
 
 ## Key Features
 
-- **AI-Powered Spiritual Search:** Utilizes Google's Gemini API to intelligently search across five distinct spiritual libraries, providing relevant mantras and remedies for any user-described problem or intention.
+- **AI-Powered Spiritual Search:** Utilizes Google's Gemini API to intelligently search across six distinct spiritual libraries, providing relevant mantras and remedies for any user-described problem or intention.
 - **Multi-Source Wisdom Library:** Integrates wisdom from *Soundarya Lahari*, *Infallible Vedic Remedies*, *Mantra* by Govinda Das Aghori, *Secrets of Yantra, Mantra and Tantra*, and the Buddhist *Pāli Canon*.
 - **Deep AI Analysis & Synthesis:** Offers AI-generated explanations of complex Bija Mantras and can even synthesize new, potent "Combined Mantras" from user selections.
 - **Personalized Sadhana Bookmarking:** A sophisticated system allows users to bookmark not just entire practices but specific sections (e.g., only the mantra text), creating a highly customized spiritual routine.
@@ -25,6 +25,7 @@
 - **Context-Aware AI Chat Guide:** Engage in a natural conversation with "Lahari GPT," an AI guide whose knowledge is grounded in the application's texts, ensuring relevant and insightful responses.
 - **Multilingual Support:** On-demand translation of content into multiple languages, including English, Sinhala, Tamil, Hindi, and Malayalam, powered by the Gemini API.
 - **Scientific Research Summaries:** Bridges the gap between ancient wisdom and modern science with a dedicated section summarizing key research papers on the effects of mantra meditation.
+- **Comprehensive Meditation Guides:** In-depth guides on various meditation practices, including Buddhist techniques like **Mettā Bhāvanā** (Loving-Kindness), **Vipassanā** (Insight), and **Dasa Kasina** (Ten Wholes), as well as Hindu practices like **Vedic Mantra Meditation** and **Prāṇāyāma** (Vedic Breathing).
 - **Immersive UI/UX:** A beautifully designed, responsive interface with full-screen modes, audio feedback, and ambient background music to create a serene and focused user experience.
 
 <p align="center">
@@ -80,7 +81,20 @@ A collection of essential chants from the Pāli Canon, as found in the "Buddhist
 - **Paritta:** Protective chants, such as the *Mangala Sutta* (Discourse on Blessings), recited for safety and well-being.
 - **Metta:** Practices focused on cultivating loving-kindness, most notably the *Karaniya Metta Sutta*.
 
+### 6. Catholic Prayers
+A collection of traditional Catholic prayers from the "Prayer Time: A Collection of Catholic Prayers" booklet, including fundamental prayers, devotions, and prayers for special intentions. This section offers a connection to Christian contemplative and devotional practices.
+
+### 7. Meditation (Bhavana)
+This section provides guides on formal meditation practices from both Buddhist and Vedic traditions, offering structured methods for calming the mind, developing concentration, and cultivating wisdom.
+
+- **Mettā Bhavana (Loving-Kindness Meditation):** A foundational Buddhist practice aimed at cultivating boundless goodwill and compassion for all living beings. Sourced from texts like the "Baudhyāyage Athpotha," it offers a safe and powerful method for developing inner peace.
+- **Vipassanā (Insight Meditation):** A core Buddhist practice focused on observing the true nature of mind and matter to gain insight into impermanence, suffering, and not-self, leading towards purification and liberation.
+- **Dasa Kasina (Ten Wholes Meditation):** A classical Theravāda Buddhist technique for developing deep concentration (samatha) by focusing the entire mind on one of ten specific objects (e.g., earth, water, colors) until meditative absorption (jhāna) is attained.
+- **Vedic Mantra Meditation:** A traditional Hindu practice that uses mantras from the Vedas to focus the mind, purify consciousness, and awaken higher states of awareness through the repetition of sacred sounds.
+- **Prāṇāyāma (Vedic Breathing):** A guide to foundational Vedic breathing techniques like alternate nostril breathing, designed to balance the body's energy channels, calm the nervous system, and prepare the mind for deeper meditation.
+
 ---
+
 
 <p align="center">
 
@@ -88,6 +102,17 @@ A collection of essential chants from the Pāli Canon, as found in the "Buddhist
 
 </p>
 
+<p align="center">
+
+![4](/imgs/4.png)
+
+</p>
+
+<p align="center">
+
+![5](/imgs/5.png)
+
+</p>
 ## Feature Walkthrough: A Step-by-Step Journey
 
 This application is a multi-faceted spiritual toolkit. Here’s how to get the most out of your experience.
@@ -98,7 +123,7 @@ The primary way to begin is through the **AI-Powered Search**. In the "Find Mant
 - **Examples:** "I need help focusing on my studies," "mantra for courage before an interview," or "remedy for financial difficulties."
 - **Combine Feature:** You can check the "Combine mantras" box. This tells the AI to find 2-3 practices from different sources that work *synergistically* together for a more powerful, multi-faceted approach.
 
-The Gemini AI will analyze your query and search across all five spiritual libraries to find the most relevant recommendations.
+The Gemini AI will analyze your query and search across all six spiritual libraries to find the most relevant recommendations.
 
 ### Step 2: Explore the AI's Recommendations
 The AI may return a single, highly relevant practice or a collection of synergistic ones. The results are presented in a clear, expandable format. You can click on each recommendation to open a detailed card without leaving the page.
@@ -141,23 +166,15 @@ Use the navigation buttons at the top to explore each spiritual library individu
 - **Screenshot Capture:** Capture and share beautiful, watermarked images of any mantra card, explanation, analysis popup, or even the entire application view with a single click.
 - **Audio Pronunciation:** An icon next to each Soundarya Lahari Bija Mantra utilizes the browser's Web Speech API to provide an audio pronunciation, aiding in correct recitation.
 
-<p align="center">
 
-![4](/imgs/4.png)
 
-</p>
 
 <p align="center">
 
-![5](/imgs/5.png)
+![1](/imgs/6.png)
 
 </p>
 
-<p align="center">
-
-![6](/imgs/6.png)
-
-</p>
 ## Understanding Bija Mantras
 
 A **Bija (seed) mantra** is a single-syllable sound that holds a potent, concentrated form of divine energy. In traditions like Shri Vidya, these seed sounds are considered the acoustic roots of deities, elements, and cosmic forces.
@@ -184,6 +201,13 @@ A **Bija (seed) mantra** is a single-syllable sound that holds a potent, concent
 | **शं (Sham)** | Peace & Tranquility | Invokes peace, tranquility, and well-being. |
 
 ---
+
+
+<p align="center">
+
+![1](/imgs/7.png)
+
+</p>
 
 ## Technology Stack & Architecture
 
@@ -212,6 +236,29 @@ A hybrid data strategy ensures both performance and intelligence:
 
 ---
 
+
+
+<p align="center">
+
+![7](/imgs/7.png)
+
+</p>
+
+
+<p align="center">
+
+![8](/imgs/8.png)
+
+</p>
+
+
+
+<p align="center">
+
+![9](/imgs/9.png)
+
+</p>
+
 ## Getting Started (For Developers)
 
 Follow these steps to get a local copy up and running.
@@ -239,6 +286,14 @@ Follow these steps to get a local copy up and running.
     python3 -m http.server
     ```
     Open your browser and navigate to the local address provided (e.g., `http://localhost:8000`).
+
+
+
+<p align="center">
+
+![10](/imgs/10.png)
+
+</p>
 
 ## Contributing
 

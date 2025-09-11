@@ -35,7 +35,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ text }) => {
     };
 
     return (
-        <div ref={analysisRef} className="relative bg-amber-100/50 p-6 rounded-lg border border-amber-300/50 text-slate-700 leading-relaxed space-y-2 animate-fade-in">
+        <div ref={analysisRef} className="relative bg-amber-100/50 p-6 rounded-lg border border-amber-300/50 text-slate-700 leading-relaxed space-y-2">
             <button
                 onClick={handleScreenshot}
                 disabled={isCapturing}

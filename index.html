@@ -106,40 +106,137 @@
       h1, h2, h3 {
         font-family: 'Playfair Display', serif;
       }
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+      /* Custom Om Cursor */
+      html {
+        cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ctext x='12' y='18' font-size='20' fill='%2378350f' text-anchor='middle'%3Eॐ%3C/text%3E%3C/svg%3E") 12 12, auto;
       }
-      @keyframes slideInUp {
-        from { transform: translateY(20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+      /* Ensure interactive elements retain their specific cursors */
+      button, a, label, select, input[type='checkbox'], input[type='range'] {
+          cursor: pointer;
       }
-      @keyframes slideDown {
+      input[type='text'], textarea {
+          cursor: text;
+      }
+
+      /* Bija Burst on Click Animation */
+      .bija-burst {
+        position: absolute;
+        z-index: 9999;
+        pointer-events: none;
+        font-size: 1.5rem;
+        color: #9a3412; /* amber-800 */
+        font-family: 'Lora', 'Noto Sans Sinhala', serif;
+        animation: bija-burst-animation 0.7s cubic-bezier(0.1, 0.8, 0.7, 1) forwards;
+        transform-origin: center center;
+      }
+
+      @keyframes bija-burst-animation {
         from {
-          opacity: 0;
-          transform: translateY(-1rem);
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
         }
         to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-      @keyframes slideInLeft {
-        from { transform: translateX(-100%); }
-        to { transform: translateX(0); }
-      }
-      .animate-slide-in-left {
-        animation: slideInLeft 0.3s ease-out;
-      }
-      @keyframes ping-slow {
-        75%, 100% {
-          transform: scale(1.6);
+          transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0.5) rotate(var(--r));
           opacity: 0;
         }
       }
-      .animate-ping-slow {
-        animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+
+      /* Reactive Mouse Gradient Background */
+      #mouse-gradient-background {
+        position: fixed;
+        inset: 0;
+        z-index: -10;
+        pointer-events: none;
+        background: radial-gradient(600px circle at calc(var(--x) * 1px) calc(var(--y) * 1px), rgba(252, 211, 77, 0.15), transparent 80%);
+        transition: background 0.2s ease-out;
       }
+    </style>
+    <style id="preloader-styles">
+      /* Preloader styles */
+      #preloader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #fffbeb; /* amber-50 */
+        opacity: 1;
+        transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+        visibility: visible;
+      }
+
+      #preloader.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .om-container {
+        position: relative;
+        width: 200px;
+        height: 200px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .om-symbol {
+        font-size: 10rem;
+        color: #78350f; /* amber-900 */
+        font-family: 'Lora', 'Noto Sans Sinhala', serif;
+        animation: pulse-om 4s ease-in-out infinite;
+        text-shadow: 0 0 15px rgba(120, 53, 15, 0.3);
+      }
+
+      @keyframes pulse-om {
+        0%, 100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.05);
+          opacity: 0.9;
+        }
+      }
+
+      .bija {
+        position: absolute;
+        font-size: 1.75rem;
+        color: #9a3412; /* amber-800 */
+        opacity: 0;
+        font-family: 'Lora', 'Noto Sans Sinhala', serif;
+        animation-duration: 4s;
+        animation-timing-function: cubic-bezier(0.6, 0.04, 0.98, 0.335);
+        animation-iteration-count: infinite;
+      }
+
+      /* Keyframes for scattering bija mantras */
+      @keyframes scatter-1 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(100px, -50px) scale(1) rotate(360deg); opacity: 1; } }
+      @keyframes scatter-2 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(-110px, 40px) scale(1) rotate(-360deg); opacity: 1; } }
+      @keyframes scatter-3 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(60px, 100px) scale(1) rotate(360deg); opacity: 1; } }
+      @keyframes scatter-4 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(-80px, -90px) scale(1) rotate(-360deg); opacity: 1; } }
+      @keyframes scatter-5 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(120px, 10px) scale(1) rotate(360deg); opacity: 1; } }
+      @keyframes scatter-6 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(-50px, 110px) scale(1) rotate(-360deg); opacity: 1; } }
+      @keyframes scatter-7 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(90px, 70px) scale(1) rotate(360deg); opacity: 1; } }
+      @keyframes scatter-8 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(-120px, -30px) scale(1) rotate(-360deg); opacity: 1; } }
+      @keyframes scatter-9 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(40px, -120px) scale(1) rotate(360deg); opacity: 1; } }
+      @keyframes scatter-10 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(-100px, 90px) scale(1) rotate(-360deg); opacity: 1; } }
+      @keyframes scatter-11 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(110px, -100px) scale(1) rotate(360deg); opacity: 1; } }
+      @keyframes scatter-12 { 0%, 100% { transform: translate(0,0) scale(0) rotate(0deg); opacity: 0; } 50% { transform: translate(-130px, -80px) scale(1) rotate(-360deg); opacity: 1; } }
+
+      /* Assign animations and delays */
+      .bija-1 { animation-name: scatter-1; animation-delay: 0s; }
+      .bija-2 { animation-name: scatter-2; animation-delay: 0.2s; }
+      .bija-3 { animation-name: scatter-3; animation-delay: 0.4s; }
+      .bija-4 { animation-name: scatter-4; animation-delay: 0.6s; }
+      .bija-5 { animation-name: scatter-5; animation-delay: 0.8s; }
+      .bija-6 { animation-name: scatter-6; animation-delay: 1.0s; }
+      .bija-7 { animation-name: scatter-7; animation-delay: 1.2s; }
+      .bija-8 { animation-name: scatter-8; animation-delay: 1.4s; }
+      .bija-9 { animation-name: scatter-9; animation-delay: 1.6s; }
+      .bija-10 { animation-name: scatter-10; animation-delay: 1.8s; }
+      .bija-11 { animation-name: scatter-11; animation-delay: 2.0s; }
+      .bija-12 { animation-name: scatter-12; animation-delay: 2.2s; }
     </style>
   <script type="importmap">
 {
@@ -155,6 +252,7 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-amber-50">
+    <div id="mouse-gradient-background"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

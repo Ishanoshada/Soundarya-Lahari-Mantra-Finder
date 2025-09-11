@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import type { BookmarkedItem, Sloka, VedicRemedy, TantraBookMantra, MantraBookItem, BuddhistChant, AudioTrack } from '../types';
+// FIX: Import MeditationGuideData to handle the 'meditation' bookmark type.
+import type { BookmarkedItem, Sloka, VedicRemedy, TantraBookMantra, MantraBookItem, BuddhistChant, AudioTrack, CatholicPrayer, MeditationGuideData } from '../types';
 import CopyableLink from './CopyableLink';
 
 const BookmarkIcon = () => (
@@ -40,6 +41,8 @@ const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItems, lang
         const tantraItems = bookmarkedItems.filter((i): i is { type: 'tantra'; data: TantraBookMantra; sections?: string[] } => i.type === 'tantra');
         const mantraBookItems = bookmarkedItems.filter((i): i is { type: 'mantraBook'; data: MantraBookItem; sections?: string[] } => i.type === 'mantraBook');
         const buddhistChantItems = bookmarkedItems.filter((i): i is { type: 'buddhistChant'; data: BuddhistChant; sections?: string[] } => i.type === 'buddhistChant');
+        const catholicPrayerItems = bookmarkedItems.filter((i): i is { type: 'catholicPrayer'; data: CatholicPrayer; sections?: string[] } => i.type === 'catholicPrayer');
+        const meditationItems = bookmarkedItems.filter((i): i is { type: 'meditation'; data: MeditationGuideData } => i.type === 'meditation');
         const audioItems = bookmarkedItems.filter((i): i is { type: 'audio'; data: AudioTrack } => i.type === 'audio');
 
         if (slokaItems.length > 0) {
@@ -81,6 +84,17 @@ const BookmarkManager: React.FC<BookmarkManagerProps> = ({ bookmarkedItems, lang
                     params.set(`bc${item.data.id}_sections`, item.sections.map(encodeURIComponent).join(','));
                 }
             });
+        }
+        if (catholicPrayerItems.length > 0) {
+            params.set('catholic', catholicPrayerItems.map(i => i.data.id).join(','));
+            catholicPrayerItems.forEach(item => {
+                if (item.sections && item.sections.length > 0) {
+                    params.set(`cp${item.data.id}_sections`, item.sections.map(encodeURIComponent).join(','));
+                }
+            });
+        }
+        if (meditationItems.length > 0) {
+            params.set('meditations', meditationItems.map(i => i.data.id).join(','));
         }
         if (audioItems.length > 0) {
             params.set('audio', audioItems.map(i => i.data.id).join(','));

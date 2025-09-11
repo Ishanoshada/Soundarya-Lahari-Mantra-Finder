@@ -91,7 +91,7 @@ const MantraCard: React.FC<MantraCardProps> = (props) => {
 
   const containerClasses = isNested || isFullScreenView
     ? "p-6 md:p-8"
-    : "w-full max-w-3xl mx-auto bg-white/60 backdrop-blur-lg rounded-2xl shadow-xl p-6 md:p-8 border border-white/30 animate-fade-in";
+    : "w-full max-w-3xl mx-auto bg-white/60 backdrop-blur-lg rounded-2xl shadow-xl p-6 md:p-8 border border-white/30";
   
   const CardContent = () => (
     <div className={`${containerClasses} relative`} ref={isFullScreenView ? null : cardRef}>

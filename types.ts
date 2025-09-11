@@ -1,4 +1,5 @@
 
+
 export interface Sloka {
   slokaNumber: number;
   title: string;
@@ -74,6 +75,36 @@ export interface BuddhistChant {
   notes?: string[];
 }
 
+export interface CatholicPrayer {
+  id: number;
+  category: string;
+  title: string;
+  text: string[];
+  author?: string;
+  source?: string;
+}
+
+export interface MeditationGuideContent {
+    parent: string;
+    title: string;
+    subtitle: string;
+    safetyNote?: string;
+    sections: {
+        heading: string;
+        content: (string | { type: 'list'; items: string[] } | { type: 'table'; headers: string[]; rows: string[][] })[];
+    }[];
+}
+
+export interface MeditationGuideData {
+    id: number;
+    title: string; // English title for list view
+    subtitle: string; // English subtitle for list view
+    icon: string; // Emoji icon
+    category: 'Buddhist' | 'Vedic';
+    translations: Record<string, MeditationGuideContent>;
+}
+
+
 export interface AudioTrack {
     id: 'lahari' | 'pirith';
     title: string;
@@ -91,11 +122,12 @@ export type SearchResult =
   | { type: 'sloka'; data: Sloka }
   | { type: 'remedy'; data: VedicRemedy }
   | { type: 'mantraBook'; data: MantraBookItem }
-  | { type: 'buddhistChant'; data: BuddhistChant };
+  | { type: 'buddhistChant'; data: BuddhistChant }
+  | { type: 'catholicPrayer'; data: CatholicPrayer }
+  | { type: 'meditation'; data: MeditationGuideData };
 
-// FIX: Add the missing MantraIdentifier type to fix an import error.
 export interface MantraIdentifier {
-  source: 'Soundarya Lahari' | 'Vedic Remedies' | 'Mantra Book' | 'Buddhist Chants';
+  source: 'Soundarya Lahari' | 'Vedic Remedies' | 'Mantra Book' | 'Buddhist Chants' | 'Catholic Prayers' | 'Meditation';
   identifier: number;
 }
 
@@ -110,6 +142,8 @@ export type BookmarkedItem =
   | { type: 'tantra'; data: TantraBookMantra; sections?: string[] }
   | { type: 'mantraBook'; data: MantraBookItem; sections?: string[] }
   | { type: 'buddhistChant'; data: BuddhistChant; sections?: string[] }
+  | { type: 'catholicPrayer'; data: CatholicPrayer; sections?: string[] }
+  | { type: 'meditation'; data: MeditationGuideData }
   | { type: 'audio'; data: AudioTrack };
 
 export interface CombinedMantraResponse {
