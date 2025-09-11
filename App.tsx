@@ -435,15 +435,20 @@ const App: React.FC = () => {
 
   // Effect to lock body scroll when mobile nav is open
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
     if (isMobileNavOpen) {
-        document.body.style.overflow = 'hidden';
+        html.style.overflow = 'hidden';
+        body.style.overflow = 'hidden';
     } else {
-        document.body.style.overflow = 'auto';
+        html.style.overflow = '';
+        body.style.overflow = '';
     }
     return () => {
-        document.body.style.overflow = 'auto';
+        html.style.overflow = '';
+        body.style.overflow = '';
     };
-}, [isMobileNavOpen]);
+  }, [isMobileNavOpen]);
 
   // Effect to show/hide floating buttons on scroll without causing re-renders
   useEffect(() => {
