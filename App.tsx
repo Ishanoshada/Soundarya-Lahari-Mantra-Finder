@@ -330,17 +330,19 @@ const App: React.FC = () => {
   const [isBgMusicPlaying, setIsBgMusicPlaying] = useState(false);
   const [currentBgTrack, setCurrentBgTrack] = useState<BackgroundMusicTrack>(BACKGROUND_MUSIC_TRACKS[0]);
   const bgAudioRef = useRef<HTMLAudioElement>(null);
-  const [apiUsage, setApiUsage] = useState({ count: 0, limit: API_LIMIT });
+  const [apiUsage, setApiUsage] = useState({ count: 0, limit: API_LIMIT, loaded: false });
   const [showPreloader, setShowPreloader] = useState(shouldShowPreloaderInitially());
   const [isPreloaderHiding, setIsPreloaderHiding] = useState(false);
   const [karmicWarningDismissed, setKarmicWarningDismissed] = useState(false);
+  const [isNavSticky, setIsNavSticky] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
 
 
   const [showBookmarkPanel, setShowBookmarkPanel] = useState(true);
   const [highlightedSections, setHighlightedSections] = useState<Record<string, string[]>>({});
 
-  const handleApiUsageUpdate = useCallback(() => {
-    setApiUsage(getApiUsage());
+  const handleApiUsageUpdate = useCallback(async () => {
+    setApiUsage({ ...await getApiUsage(), loaded: true });
   }, []);
 
   // Effect for preloader
@@ -455,6 +457,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const mobileNav = document.getElementById('mobile-nav-toggle');
     const musicPlayer = document.getElementById('floating-music-player');
+    const bookmarkToggle = document.getElementById('floating-bookmark-toggle');
 
     const handleScroll = () => {
         const currentScrollY = window.scrollY;
@@ -494,12 +497,50 @@ const App: React.FC = () => {
             }
         }
         
+        if (bookmarkToggle) {
+            if (isVisible) {
+                bookmarkToggle.classList.remove('translate-x-24', 'opacity-0');
+                bookmarkToggle.classList.add('translate-x-0', 'opacity-100');
+            } else {
+                bookmarkToggle.classList.remove('translate-x-0', 'opacity-100');
+                bookmarkToggle.classList.add('translate-x-24', 'opacity-0');
+            }
+        }
+        
         lastScrollY.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [isMobileNavOpen]);
+
+    // Effect for sticky navigation
+    useEffect(() => {
+        const navElement = navRef.current;
+        if (!navElement) return;
+
+        // Use a more robust way to get the sticky point, considering the header above it.
+        const headerElement = document.querySelector('header');
+        const stickyPoint = (headerElement?.offsetHeight || 0) + navElement.offsetHeight;
+
+        const handleScroll = () => {
+            if (window.innerWidth >= 768) { // md breakpoint
+                setIsNavSticky(window.scrollY > stickyPoint);
+            } else {
+                setIsNavSticky(false); // Always false on mobile
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        window.addEventListener('resize', handleScroll, { passive: true });
+
+        handleScroll(); // Initial check
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('resize', handleScroll);
+        };
+    }, []);
 
   // Effect to control background music playback
   useEffect(() => {
@@ -608,7 +649,7 @@ const App: React.FC = () => {
     const catholicPrayerIds = urlParams.get('catholic')?.split(',').map(Number).filter(n => !isNaN(n));
     if (catholicPrayerIds) {
         catholicPrayerIds.forEach(id => {
-            const item = CATHOLIC_PRAYERS_DATA.find(t => t.id === id);
+            const item = CATHOLIC_PRAYERS_DATA.find(p => p.id === id);
             if (item) {
                 const sectionsParam = urlParams.get(`cp${id}_sections`);
                 const sections = sectionsParam ? sectionsParam.split(',').map(decodeURIComponent) : undefined;
@@ -712,7 +753,7 @@ const App: React.FC = () => {
         setError(null);
         try {
             const identifiers = await findMantraForProblem(searchParams.query, searchParams.combine);
-            handleApiUsageUpdate();
+            await handleApiUsageUpdate();
             if (identifiers.length === 0) {
                 setUntranslatedMantraResults([]);
                 return;
@@ -778,7 +819,7 @@ const App: React.FC = () => {
           setError(null);
           try {
               const translated = await translateSearchResults(untranslatedMantraResults, language);
-              handleApiUsageUpdate();
+              await handleApiUsageUpdate();
               setMantraResults(translated);
           } catch (e: any) {
               setError(e.message);
@@ -1031,6 +1072,23 @@ const App: React.FC = () => {
       {text}
     </button>
   );
+
+    const renderStickyNavButton = (buttonMode: AppMode, text: string) => (
+      <button
+        onClick={() => {
+          setMode(buttonMode);
+          setInitialViewTarget(null);
+        }}
+        className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 ${
+          mode === buttonMode
+            ? 'bg-amber-800 text-white shadow-sm'
+            : 'bg-white/70 text-amber-800 hover:bg-amber-100'
+        }`}
+        aria-pressed={mode === buttonMode}
+      >
+        {text}
+      </button>
+    );
   
   const renderMobileNavButton = (buttonMode: AppMode, text: string) => (
     <button
@@ -1064,6 +1122,22 @@ const App: React.FC = () => {
 
   return (
     <>
+      {isNavSticky && (
+        <div className="hidden md:flex justify-center flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 fixed top-0 left-0 right-0 z-40 bg-amber-50/90 backdrop-blur-md shadow-lg transition-all duration-300 animate-slide-in-down">
+            {renderStickyNavButton('find', 'Find')}
+            {renderStickyNavButton('lookup', 'Slokas')}
+            {renderStickyNavButton('vedic', 'Vedic')}
+            {renderStickyNavButton('mantraBook', 'Compendium')}
+            {renderStickyNavButton('tantraBook', 'Tantric')}
+            {renderStickyNavButton('buddhistChants', 'Buddhist')}
+            {renderStickyNavButton('catholicPrayers', 'Catholic')}
+            {renderStickyNavButton('meditation', 'Meditation')}
+            {renderStickyNavButton('occult', 'Occult')}
+            {renderStickyNavButton('listen', 'Listen')}
+            {renderStickyNavButton('aiChat', 'AI Chat')}
+            {renderStickyNavButton('research', 'Research')}
+        </div>
+      )}
       {showPreloader && <Preloader isHiding={isPreloaderHiding} />}
       {mode === 'occult' && !karmicWarningDismissed && <KarmicWarningModal language={language} setLanguage={setLanguage} onClose={() => setKarmicWarningDismissed(true)} />}
       <div className={`min-h-screen ${mode !== 'occult' ? 'bg-gradient-to-br from-amber-50 via-rose-50 to-orange-100' : ''} text-slate-800 p-4 sm:p-8 flex flex-col items-center ${!showPreloader ? 'animate-fade-in' : 'opacity-0'}`}>
@@ -1142,7 +1216,7 @@ const App: React.FC = () => {
                </button>
            </div>
 
-          <div className="hidden md:flex justify-center flex-wrap gap-2 md:gap-4 my-6">
+          <div ref={navRef} className="hidden md:flex justify-center flex-wrap gap-2 md:gap-4 my-6">
             {renderNavButton('find', 'Find Mantra for Problem', 0)}
             {renderNavButton('lookup', 'Lookup Sloka', 1)}
             {renderNavButton('vedic', 'Vedic Remedies', 2)}
@@ -1176,7 +1250,7 @@ const App: React.FC = () => {
                 language={language}
               />
               <div className="bg-white/80 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-full shadow-sm border border-amber-300/60" title={`Daily AI Interaction Count. Resets daily.`}>
-                  AI Usage: {apiUsage.count}/{apiUsage.limit}
+                  AI Usage: {apiUsage.loaded ? `${apiUsage.count}/${apiUsage.limit}` : `.../${API_LIMIT}`}
               </div>
           </div>
           

@@ -117,7 +117,7 @@
       input[type='text'], textarea {
           cursor: text;
       }
- @keyframes ping-slow {
+      @keyframes ping-slow {
         75%, 100% {
           transform: scale(1.6);
           opacity: 0;
@@ -157,6 +157,20 @@
         pointer-events: none;
         background: radial-gradient(600px circle at calc(var(--x) * 1px) calc(var(--y) * 1px), rgba(252, 211, 77, 0.15), transparent 80%);
         transition: background 0.2s ease-out;
+      }
+      /* Sticky Nav Animation */
+      @keyframes slide-in-down {
+        from {
+          transform: translateY(-100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      .animate-slide-in-down {
+        animation: slide-in-down 0.4s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
       }
     </style>
     <style id="preloader-styles">
@@ -291,7 +305,7 @@
       .dark-theme .text-amber-900, .dark-theme .text-amber-900\/80, .dark-theme .text-slate-800 {
         color: var(--text-primary) !important;
       }
-      .dark-theme .bg-white\/60, .dark-theme .bg-white\/70, .dark-theme .bg-white\/80, .dark-theme .bg-amber-100\/60, .dark-theme .bg-amber-100\/40, .dark-theme .bg-amber-50\/70, .dark-theme .bg-amber-100\/50, .dark-theme .bg-amber-200, .dark-theme .bg-amber-100, .dark-theme .bg-amber-50\/50 {
+      .dark-theme .bg-white\/60, .dark-theme .bg-white\/70, .dark-theme .bg-white\/80, .dark-theme .bg-amber-100\/60, .dark-theme .bg-amber-100\/40, .dark-theme .bg-amber-50\/70, .dark-theme .bg-amber-100\/50, .dark-theme .bg-amber-200, .dark-theme .bg-amber-100, .dark-theme .bg-amber-50\/50, .dark-theme .bg-amber-50, .dark-theme .bg-amber-50\/90 {
         background-color: var(--bg-panel-color) !important;
       }
       .dark-theme .border, .dark-theme .border-b, .dark-theme .border-l-4, .dark-theme .border-t, .dark-theme .border-amber-300\/50, .dark-theme .border-white\/30, .dark-theme .border-amber-200\/50, .dark-theme .border-amber-200, .dark-theme .border-amber-300\/60 {
@@ -335,6 +349,13 @@
       }
       .dark-theme button, .dark-theme a, .dark-theme label, .dark-theme select, .dark-theme input[type='checkbox'], .dark-theme input[type='range'] {
           cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ctext x='12' y='18' font-size='20' fill='%23e0e0e0' text-anchor='middle'%3E👇%3C/text%3E%3C/svg%3E") 12 12, pointer !important;
+      }
+      /* Mobile Nav Dark Theme Fixes */
+      .dark-theme .hover\:text-red-600:hover {
+        color: var(--link-hover) !important;
+      }
+      .dark-theme .hover\:bg-amber-200\/50:hover {
+        background-color: #444 !important;
       }
     </style>
   <script type="importmap">

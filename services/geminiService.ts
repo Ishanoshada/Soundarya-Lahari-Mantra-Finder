@@ -29,75 +29,166 @@ interface StoredApiUsage {
     [C_KEY]: string; // base64 encoded checksum
 }
 
-// Safely decodes a base64 string to a number, returning null on failure
-const safeDecode = (str: string): number | null => {
+// --- IndexedDB Helper for Persistent Storage ---
+const DB_NAME = 'GeminiAPIData';
+const STORE_NAME = 'usage';
+const DB_VERSION = 1;
+const IDB_USAGE_KEY = 'apiUsage';
+
+const openDB = (): Promise<IDBDatabase> => {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => reject("Failed to open IndexedDB. Please ensure it's not disabled in your browser settings.");
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (event) => {
+            const db = (event.target as IDBOpenDBRequest).result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+    });
+};
+
+const getFromDB = async <T>(key: IDBValidKey): Promise<T | undefined> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(key);
+        request.onerror = () => reject("Failed to get data from IndexedDB");
+        request.onsuccess = () => resolve(request.result as T | undefined);
+    });
+};
+
+const setToDB = async <T>(key: IDBValidKey, value: T): Promise<void> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(value, key);
+        request.onerror = () => reject("Failed to set data in IndexedDB");
+        request.onsuccess = () => resolve();
+    });
+};
+
+// Writes usage data to both localStorage and IndexedDB for redundancy
+const writeUsage = async (data: StoredApiUsage): Promise<void> => {
+    localStorage.setItem(USAGE_KEY, JSON.stringify(data));
     try {
-        const decoded = atob(str);
-        const num = parseInt(decoded, 10);
-        return isNaN(num) ? null : num;
+        await setToDB(IDB_USAGE_KEY, data);
     } catch (e) {
-        return null;
+        console.warn("Could not write to IndexedDB:", e);
     }
 };
 
-// Reads and validates the usage data from localStorage
-const readUsage = (): { count: number, resetTime: number } | { tampered: true } => {
-    const now = Date.now();
-    try {
-        const storedItem = localStorage.getItem(USAGE_KEY);
-        if (!storedItem) {
-            return { count: 0, resetTime: now + 24 * 60 * 60 * 1000 };
-        }
-        
-        const parsed: StoredApiUsage = JSON.parse(storedItem);
 
-        if (!parsed[V_KEY] || !parsed[R_KEY] || !parsed[S_KEY] || !parsed[C_KEY]) {
-            localStorage.removeItem(USAGE_KEY); // Clean up invalid/old format
-            return { count: 0, resetTime: now + 24 * 60 * 60 * 1000 };
-        }
+// Safely decodes a base64 string and validates its integrity
+const decodeAndValidate = (parsed: StoredApiUsage | undefined): { count: number, resetTime: number } | { tampered: true } | null => {
+    if (!parsed) {
+        return null; // Data is missing
+    }
 
-        const count = safeDecode(parsed[V_KEY]);
-        const resetTime = safeDecode(parsed[R_KEY]);
-        const shadow = safeDecode(parsed[S_KEY]);
-        
-        if (count === null || resetTime === null || shadow === null) {
-            return { tampered: true };
-        }
-        
-        // Integrity check 1: Shadow count must match the transformed real count
-        if (transformCount(count) !== shadow) {
-            return { tampered: true };
-        }
-
-        // Integrity check 2: Checksum must match the expected value
-        const expectedChecksum = btoa(`${parsed[V_KEY]}:${parsed[R_KEY]}:${parsed[S_KEY]}:${SECRET_KEY}`);
-        if (parsed[C_KEY] !== expectedChecksum) {
-            return { tampered: true };
-        }
-        
-        if (now > resetTime) {
-            return { count: 0, resetTime: now + 24 * 60 * 60 * 1000 };
-        }
-        
-        return { count, resetTime };
-    } catch (e) {
-        // Any error during parsing is treated as tampering
+    if (!parsed[V_KEY] || !parsed[R_KEY] || !parsed[S_KEY] || !parsed[C_KEY]) {
         return { tampered: true };
     }
+
+    const safeDecode = (str: string): number | null => {
+        try {
+            const decoded = atob(str);
+            const num = parseInt(decoded, 10);
+            return isNaN(num) ? null : num;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const count = safeDecode(parsed[V_KEY]);
+    const resetTime = safeDecode(parsed[R_KEY]);
+    const shadow = safeDecode(parsed[S_KEY]);
+    
+    if (count === null || resetTime === null || shadow === null) {
+        return { tampered: true };
+    }
+    
+    if (transformCount(count) !== shadow) {
+        return { tampered: true };
+    }
+
+    const expectedChecksum = btoa(`${parsed[V_KEY]}:${parsed[R_KEY]}:${parsed[S_KEY]}:${SECRET_KEY}`);
+    if (parsed[C_KEY] !== expectedChecksum) {
+        return { tampered: true };
+    }
+    
+    return { count, resetTime };
 };
 
-export const getApiUsage = (): { count: number; limit: number } => {
-    const usage = readUsage();
-    if (!('count' in usage)) {
+// Reads from both localStorage and IndexedDB, reconciles them, and returns the source of truth
+const readUsage = async (): Promise<{ count: number, resetTime: number } | { tampered: true }> => {
+    const now = Date.now();
+    const defaultState = { count: 0, resetTime: now + 24 * 60 * 60 * 1000 };
+
+    let lsData: StoredApiUsage | undefined;
+    try {
+        const storedItem = localStorage.getItem(USAGE_KEY);
+        if (storedItem) lsData = JSON.parse(storedItem);
+    } catch {
+        lsData = undefined;
+    }
+
+    let dbData: StoredApiUsage | undefined;
+    try {
+        dbData = await getFromDB<StoredApiUsage>(IDB_USAGE_KEY);
+    } catch (e) {
+        console.warn("Could not read from IndexedDB:", e);
+        dbData = undefined;
+    }
+
+    const lsResult = decodeAndValidate(lsData);
+    const dbResult = decodeAndValidate(dbData);
+    
+    const isLsValid = lsResult && !('tampered' in lsResult);
+    const isDbValid = dbResult && !('tampered' in dbResult);
+    
+    if (isLsValid && isDbValid) {
+        const lsUsage = lsResult as { count: number, resetTime: number };
+        const dbUsage = dbResult as { count: number, resetTime: number };
+        const truthData = lsUsage.count >= dbUsage.count ? lsData! : dbData!;
+        const truthResult = lsUsage.count >= dbUsage.count ? lsUsage : dbUsage;
+        await writeUsage(truthData);
+        return now > truthResult.resetTime ? defaultState : truthResult;
+    }
+
+    if (isLsValid) {
+        await writeUsage(lsData!);
+        const { count, resetTime } = lsResult as { count: number, resetTime: number };
+        return now > resetTime ? defaultState : { count, resetTime };
+    }
+
+    if (isDbValid) {
+        await writeUsage(dbData!);
+        const { count, resetTime } = dbResult as { count: number, resetTime: number };
+        return now > resetTime ? defaultState : { count, resetTime };
+    }
+
+    if (lsResult === null && dbResult === null) {
+        return defaultState;
+    }
+    
+    return { tampered: true };
+};
+
+export const getApiUsage = async (): Promise<{ count: number; limit: number }> => {
+    const usage = await readUsage();
+    if ('tampered' in usage || !('count' in usage)) {
         return { count: API_LIMIT, limit: API_LIMIT };
     }
     return { count: usage.count, limit: API_LIMIT };
 };
 
-const checkAndRecordApiUsage = (): void => {
-    const usage = readUsage();
+const checkAndRecordApiUsage = async (): Promise<void> => {
+    const usage = await readUsage();
 
-    if (!('count' in usage)) {
+    if ('tampered' in usage) {
         const now = Date.now();
         const newResetTime = now + 24 * 60 * 60 * 1000;
         const lockCount = API_LIMIT;
@@ -107,7 +198,7 @@ const checkAndRecordApiUsage = (): void => {
         const s = btoa(String(transformCount(lockCount)));
         const c = btoa(`${v}:${r}:${s}:${SECRET_KEY}`);
         
-        localStorage.setItem(USAGE_KEY, JSON.stringify({ [V_KEY]: v, [R_KEY]: r, [S_KEY]: s, [C_KEY]: c }));
+        await writeUsage({ [V_KEY]: v, [R_KEY]: r, [S_KEY]: s, [C_KEY]: c });
 
         throw new Error("The flow of divine energy is based on trust and integrity. Attempting to manipulate the natural order disrupts this connection. True progress comes not from circumvention, but from patience and acceptance. Your access is temporarily paused for reflection.");
     }
@@ -127,7 +218,7 @@ const checkAndRecordApiUsage = (): void => {
     const c = btoa(`${v}:${r}:${s}:${SECRET_KEY}`);
 
     const dataToWrite: StoredApiUsage = { [V_KEY]: v, [R_KEY]: r, [S_KEY]: s, [C_KEY]: c };
-    localStorage.setItem(USAGE_KEY, JSON.stringify(dataToWrite));
+    await writeUsage(dataToWrite);
 };
 
 
@@ -148,7 +239,7 @@ const combinedIdentifierSchema = {
 };
 
 export const findMantraForProblem = async (problem: string, combine: boolean): Promise<MantraIdentifier[]> => {
-  checkAndRecordApiUsage();
+  await checkAndRecordApiUsage();
   // To make the prompt more efficient, we only send the fields necessary for matching.
   const slokaDataString = JSON.stringify(SLOKA_DATA.map(({slokaNumber, title, beneficialResults, literalResults}) => ({slokaNumber, title, beneficialResults, literalResults})), null, 2);
   const remediesDataString = JSON.stringify(VEDIC_REMEDIES_DATA.map(({id, title, purpose}) => ({id, title, purpose})), null, 2);
@@ -259,7 +350,7 @@ const explainerSchema = {
 };
 
 export const explainBijaMantras = async (rawBijaMantras: string[], language: string): Promise<BijaMantraApiResponse> => {
-    checkAndRecordApiUsage();
+    await checkAndRecordApiUsage();
     const dataString = JSON.stringify(SLOKA_DATA, null, 2);
 
     const uniqueMantras = Array.from(
@@ -323,7 +414,7 @@ export const translateSlokas = async (slokas: Sloka[], language: string, skipLim
     }
     
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     const slokasToTranslate = slokas.map(s => ({ 
@@ -390,7 +481,7 @@ export const translateSlokas = async (slokas: Sloka[], language: string, skipLim
 
 
 export const analyzeSlokas = async (slokas: Sloka[], language: string): Promise<string> => {
-    checkAndRecordApiUsage();
+    await checkAndRecordApiUsage();
     const slokaDetails = JSON.stringify(slokas.map(({ slokaNumber, title, bijaMantra, beneficialResults, literalResults }) => ({
         slokaNumber, title, bijaMantra, beneficialResults, literalResults
     })), null, 2);
@@ -433,7 +524,7 @@ export const translateVedicRemedies = async (remedies: VedicRemedy[], language: 
     }
     
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     const remediesToTranslate = remedies.map(r => ({
@@ -501,7 +592,7 @@ export const translateTantraBookMantras = async (mantras: TantraBookMantra[], la
     }
 
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     const mantrasToTranslate = mantras.map(m => ({
@@ -571,7 +662,7 @@ export const translateMantraBookItems = async (items: MantraBookItem[], language
     }
 
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     const itemsToTranslate = items.map(m => ({
@@ -639,7 +730,7 @@ export const translateBuddhistChants = async (chants: BuddhistChant[], language:
     }
 
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     const chantsToTranslate = chants.map(c => ({
@@ -715,7 +806,7 @@ export const translateCatholicPrayers = async (prayers: CatholicPrayer[], langua
     }
 
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     const prayersToTranslate = prayers.map(p => ({
@@ -784,7 +875,7 @@ export const translateMeditationGuides = async (guides: MeditationGuideData[], l
         return guides;
     }
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     const guidesToTranslate = guides.map(guide => ({
@@ -893,7 +984,7 @@ export const translateOccultChapters = async (chapters: OccultScienceChapter[], 
     }
 
     if (!skipLimitCheck) {
-        checkAndRecordApiUsage();
+        await checkAndRecordApiUsage();
     }
 
     // Don't send ID to AI
@@ -983,7 +1074,7 @@ export const translateSearchResults = async (results: SearchResult[], language: 
         return results;
     }
 
-    checkAndRecordApiUsage(); // Count this bundle of translations as ONE usage.
+    await checkAndRecordApiUsage(); // Count this bundle of translations as ONE usage.
 
     const slokasToTranslate = results.filter((r): r is { type: 'sloka'; data: Sloka } => r.type === 'sloka').map(r => r.data);
     const remediesToTranslate = results.filter((r): r is { type: 'remedy'; data: VedicRemedy } => r.type === 'remedy').map(r => r.data);
@@ -1026,7 +1117,7 @@ export const translateSearchResults = async (results: SearchResult[], language: 
 };
 
 export const getAiChatResponse = async (message: string, history: ChatMessage[], language: string): Promise<string> => {
-    checkAndRecordApiUsage();
+    await checkAndRecordApiUsage();
     const lowercasedMessage = message.toLowerCase().replace(/[?.,]/g, '');
 
     // Keywords to detect general questions
@@ -1170,7 +1261,7 @@ const combinedMantraSchema = {
 };
 
 export const createCombinedMantra = async (bijaMantras: string[], slokas: Sloka[], language: string): Promise<CombinedMantraResponse> => {
-    checkAndRecordApiUsage();
+    await checkAndRecordApiUsage();
     const uniqueMantras = Array.from(
         new Set(
           bijaMantras

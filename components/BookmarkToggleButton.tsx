@@ -14,8 +14,9 @@ interface BookmarkToggleButtonProps {
 const BookmarkToggleButton: React.FC<BookmarkToggleButtonProps> = ({ count, onClick }) => {
     return (
         <button
+            id="floating-bookmark-toggle"
             onClick={onClick}
-            className="fixed bottom-4 right-4 z-40 flex items-center justify-center w-16 h-16 bg-amber-800 text-white rounded-full shadow-2xl hover:bg-amber-900 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-amber-500/50 animate-fade-in"
+            className="fixed bottom-4 right-4 z-40 flex items-center justify-center w-16 h-16 bg-amber-800 text-white rounded-full shadow-2xl hover:bg-amber-900 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-amber-500/50 translate-x-0 opacity-100"
             aria-label={`Show ${count} bookmarked items`}
         >
             <BookmarkIcon />
